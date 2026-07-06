@@ -1,0 +1,20 @@
+{
+  "name": "ROBO RUMBLE ULTIMATE",
+  "short_name": "ROBO RUMBLE",
+  "description": "A browser-playable 3D mega robot arena fighting game by RR Apps and Games.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#0b0e13",
+  "theme_color": "#0b0e13",
+  "orientation": "landscape",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

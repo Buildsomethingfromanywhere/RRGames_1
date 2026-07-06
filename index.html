@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="ROBO RUMBLE ULTIMATE is a browser-playable 3D mega robot arena fighting game by RR Apps and Games.">
+<meta name="application-name" content="ROBO RUMBLE ULTIMATE">
+<meta name="apple-mobile-web-app-title" content="ROBO RUMBLE">
+<meta name="publisher" content="RR Apps and Games">
+<meta name="theme-color" content="#0b0e13">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="ROBO RUMBLE ULTIMATE">
+<meta property="og:description" content="Enter a cinematic 3D mega robot fight arena from RR Apps and Games.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="./icon.svg">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="manifest" href="./site.webmanifest">
+<title>ROBO RUMBLE ULTIMATE</title>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- BUY ROBOT UI -->
+<div id="shop">
+  <div class="shopTop">
+    <h1 class="titleFont">ROBO RUMBLE ULTIMATE</h1>
+    <div class="studioName titleFont">RR Apps and Games</div>
+    <p>BUY A BASE CHASSIS &nbsp;•&nbsp; INSPECT POWERS &nbsp;•&nbsp; THEN CONFIGURE EVERY SYSTEM</p>
+  </div>
+  <div id="devStudio">
+    <div class="studioBot">
+      <div class="botHead"></div><div class="botCore"></div><div class="botHands"></div>
+    </div>
+    <div class="studioScreens">
+      <span>ENGINE EDITOR</span><span>AI BEHAVIOR</span><span>PHYSICS DEBUG</span><span>SHADER LAB</span>
+      <span>RIG EDITOR</span><span>PARTICLE FX</span>
+    </div>
+    <div class="holoDesk">HOLOGRAPHIC ARENA MODEL · MOTION CAPTURE · PROFILER</div>
+  </div>
+  <div class="shopPanel">
+    <div class="gLabel">Robot Market</div>
+    <div id="botMarket"></div>
+    <button id="buyBtn">BUY SELECTED ROBOT</button>
+    <button id="configureBtn">CONFIGURE IN WORKSHOP</button>
+    <div class="powerPanel">
+      <h3 class="titleFont">VISIBLE POWER LOADOUT</h3>
+      <div class="powerList" id="shopPowers"></div>
+    </div>
+  </div>
+</div>
+ 
+<!-- GARAGE UI -->
+<div id="garage" class="hidden">
+  <div class="gTop">
+    <h1 class="titleFont">ROBO RUMBLE ULTIMATE</h1>
+    <div class="studioName titleFont">RR Apps and Games</div>
+    <p>MEGA-BOT WORKSHOP &nbsp;•&nbsp; TRANSFORMING BATTLE MACHINES &nbsp;•&nbsp; DRAG TO SPIN</p>
+  </div>
+  <div class="gPanel">
+    <div class="gNav">
+      <button id="shopBackBtn">ROBOT MARKET</button>
+      <button id="fullRandomBtn">FULL RANDOM</button>
+    </div>
+    <div class="gLabel">Bot Name</div>
+    <input id="botName" maxlength="14" value="OMEGACLANK">
+    <div class="gLabel">Armor Color</div>
+    <div class="swRow" id="armorRow"></div>
+    <div class="gLabel">Accent / Trim</div>
+    <div class="swRow" id="accentRow"></div>
+    <div class="gLabel">Energy Glow</div>
+    <div class="swRow" id="glowRow"></div>
+    <div class="gLabel">Body Frame</div>
+    <div class="optRow" id="frameRow">
+      <button class="opt sel" data-v="standard">BALANCED</button>
+      <button class="opt" data-v="bulky">TITAN</button>
+      <button class="opt" data-v="slim">STRIKER</button>
+    </div>
+    <div class="gLabel">Head Unit</div>
+    <div class="optRow" id="headRow">
+      <button class="opt sel" data-v="visor">VISOR</button>
+      <button class="opt" data-v="cyclops">CYCLOPS</button>
+      <button class="opt" data-v="samurai">SAMURAI</button>
+      <button class="opt" data-v="hawk">WAR HAWK</button>
+      <button class="opt" data-v="guardian">GUARDIAN</button>
+    </div>
+    <div class="gLabel">Shoulders</div>
+    <div class="optRow" id="shRow">
+      <button class="opt sel" data-v="heavy">HEAVY</button>
+      <button class="opt" data-v="spike">SPIKED</button>
+      <button class="opt" data-v="round">ROUND</button>
+      <button class="opt" data-v="missile">MISSILE PODS</button>
+    </div>
+    <div class="gLabel">Back Unit</div>
+    <div class="optRow" id="backRow">
+      <button class="opt sel" data-v="jets">TWIN JETS</button>
+      <button class="opt" data-v="wings">POWER WINGS</button>
+      <button class="opt" data-v="pods">CANNON PODS</button>
+    </div>
+    <div class="gLabel">Leg System</div>
+    <div class="optRow" id="legRow">
+      <button class="opt sel" data-v="biped">BIPED</button>
+      <button class="opt" data-v="raptor">RAPTOR</button>
+      <button class="opt" data-v="hover">HOVER RING</button>
+    </div>
+    <div class="gLabel">Blaster</div>
+    <div class="optRow" id="gunRow">
+      <button class="opt sel" data-v="rifle">PULSE RIFLE</button>
+      <button class="opt" data-v="cannon">ARM CANNON</button>
+      <button class="opt" data-v="gatling">GATLING</button>
+    </div>
+    <div class="gLabel">Melee Weapon</div>
+    <div class="optRow" id="bladeRow">
+      <button class="opt sel" data-v="sword">ENERGY SWORD</button>
+      <button class="opt" data-v="axe">PLASMA AXE</button>
+      <button class="opt" data-v="dual">TWIN DAGGERS</button>
+    </div>
+    <div class="gLabel">Arena</div>
+    <div class="optRow" id="arenaRow">
+      <button class="opt arenaChip sel" data-v="steel">STEEL DOME</button>
+      <button class="opt arenaChip" data-v="lava">LAVA PIT</button>
+      <button class="opt arenaChip" data-v="sky">SKY PLATFORM</button>
+    </div>
+    <button id="randomBtn">🎲 RANDOMIZE MEGA-BOT</button>
+    <div class="powerPanel">
+      <h3 class="titleFont">CONFIGURED POWERS</h3>
+      <div class="powerList" id="garagePowers"></div>
+    </div>
+  </div>
+  <div class="gBottom"><button id="fightBtn" class="titleFont">⚡ ENTER THE ARENA</button></div>
+</div>
+ 
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hpWrap player"><div class="hpName" id="pName">YOU</div><div class="hpBarOuter"><div class="hpBarFill" id="pHp"></div></div></div>
+  <div class="hpWrap enemy"><div class="hpName" id="eName">SCRAPJAW</div><div class="hpBarOuter"><div class="hpBarFill" id="eHp"></div></div></div>
+  <div id="vsTag" class="titleFont">VS</div>
+  <div id="roundTag" class="titleFont">ROUND 1 · 0-0</div>
+  <div id="combatTelemetry">
+    <div><b id="comboText">0 HIT</b><span>COMBO</span></div>
+    <div><b id="timerText">90</b><span>TIMER</span></div>
+    <div><b id="energyText">100%</b><span>ENERGY</span></div>
+    <div><b id="ultimateText">0%</b><span>ULTIMATE</span></div>
+    <div><b id="armorText">OK</b><span>ARMOR</span></div>
+    <div><b id="heatText">LOW</b><span>HEAT</span></div>
+  </div>
+  <div id="miniMap"><div id="miniP"></div><div id="miniE"></div></div>
+  <div id="replayTag" class="titleFont">LIVE REPLAY CAM · CROWD 100,000</div>
+  <div id="cool">
+    <div class="coolSlot ready" id="slotGun">🔫<small>FIRE</small><div class="coolFill" id="cfGun"></div></div>
+    <div class="coolSlot ready" id="slotSword">⚔️<small>F</small><div class="coolFill" id="cfSword"></div></div>
+    <div class="coolSlot ready" id="slotDash">💨<small>SHIFT</small><div class="coolFill" id="cfDash"></div></div>
+    <div class="coolSlot special ready" id="slotBall">🌀<small>Q BALL</small><div class="coolFill" id="cfBall"></div></div>
+    <div class="coolSlot special ready" id="slotKick">🚀<small>E KICK</small><div class="coolFill" id="cfKick"></div></div>
+    <div class="coolSlot special ready" id="slotMeteor">☄️<small>R SLAM</small><div class="coolFill" id="cfMeteor"></div></div>
+    <div class="coolSlot special ready" id="slotTornado">🌪️<small>T SPIN</small><div class="coolFill" id="cfTornado"></div></div>
+    <div class="coolSlot special ready" id="slotShield">🛡️<small>G GUARD</small><div class="coolFill" id="cfShield"></div></div>
+    <div class="coolSlot special ready" id="slotGrapple">🪝<small>C HOOK</small><div class="coolFill" id="cfGrapple"></div></div>
+  </div>
+  <div id="ctrlHint">
+    <span><span class="key">ARROWS</span>Move</span>
+    <span><span class="key">WASD</span>Alt Move</span>
+    <span><span class="key">MOUSE</span>Aim</span>
+    <span><span class="key">CLICK</span>Blaster</span>
+    <span><span class="key">F</span>Melee</span>
+    <span><span class="key">SHIFT</span>Dash</span>
+    <span><span class="key">Q</span>Wrecking Ball</span>
+    <span><span class="key">E</span>Rocket Kick</span>
+    <span><span class="key">R</span>Meteor Slam</span>
+    <span><span class="key">T</span>Tornado</span>
+    <span><span class="key">G</span>Shield</span>
+    <span><span class="key">C</span>Grapple</span>
+  </div>
+  <div id="announce" class="titleFont"></div>
+  <div id="reticle"><svg viewBox="0 0 34 34" width="34" height="34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ffd23f" stroke-width="2"/><circle cx="17" cy="17" r="2.5" fill="#ffd23f"/><line x1="17" y1="0" x2="17" y2="8" stroke="#ffd23f" stroke-width="2"/><line x1="17" y1="26" x2="17" y2="34" stroke="#ffd23f" stroke-width="2"/><line x1="0" y1="17" x2="8" y2="17" stroke="#ffd23f" stroke-width="2"/><line x1="26" y1="17" x2="34" y2="17" stroke="#ffd23f" stroke-width="2"/></svg></div>
+  <div id="dmgFlash"></div>
+</div>
+ 
+<!-- END SCREEN -->
+<div id="endScreen" class="hidden">
+  <div id="endTitle" class="titleFont win">VICTORY!</div>
+  <div id="endSub">Enemy bot popped into spare parts. Nice shooting!</div>
+  <div class="endBtns">
+    <button class="endBtn" id="rematchBtn">⚡ REMATCH</button>
+    <button class="endBtn" id="garageBtn">🔧 BACK TO GARAGE</button>
+  </div>
+</div>
+ 
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

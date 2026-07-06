@@ -1,0 +1,19 @@
+{
+  "name": "robo-rumble-ultimate",
+  "version": "1.0.0",
+  "private": true,
+  "author": "RR Apps and Games",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "check": "node --check src/main.js"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
