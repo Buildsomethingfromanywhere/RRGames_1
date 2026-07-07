@@ -990,6 +990,7 @@ const UI={};
 let mode='shop';
 const keys={};
 const mouse={x:innerWidth/2, y:innerHeight/2, down:false};
+const touchMove={x:0, z:0, active:false, fire:false, using:false};
 const raycaster=new THREE.Raycaster();
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 const aimPoint=new THREE.Vector3();
@@ -1282,6 +1283,65 @@ window.addEventListener('keyup', e=>keys[e.code]=false);
 canvas.addEventListener('mousedown', ()=>{ if(mode==='battle') mouse.down=true; });
 window.addEventListener('mouseup', ()=>mouse.down=false);
 canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); if(mode==='battle'&&!P.dead) tryMelee(P); });
+
+const movePad=document.getElementById('movePad');
+const moveKnob=document.getElementById('moveKnob');
+function resetTouchMove(){
+  touchMove.x=0; touchMove.z=0; touchMove.active=false;
+  if(moveKnob) moveKnob.style.transform='translate(0px,0px)';
+}
+if(movePad && moveKnob){
+  const updatePad=e=>{
+    const r=movePad.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const max=r.width*0.34;
+    let dx=e.clientX-cx, dy=e.clientY-cy;
+    const len=Math.hypot(dx,dy);
+    if(len>max){ dx=dx/len*max; dy=dy/len*max; }
+    touchMove.x=dx/max;
+    touchMove.z=dy/max;
+    touchMove.active=true;
+    touchMove.using=true;
+    moveKnob.style.transform=`translate(${dx}px,${dy}px)`;
+  };
+  movePad.addEventListener('pointerdown', e=>{
+    if(mode!=='battle') return;
+    movePad.setPointerCapture(e.pointerId);
+    updatePad(e);
+    e.preventDefault();
+  });
+  movePad.addEventListener('pointermove', e=>{
+    if(!touchMove.active) return;
+    updatePad(e);
+    e.preventDefault();
+  });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(type=>movePad.addEventListener(type, resetTouchMove));
+}
+document.querySelectorAll('.touchBtn').forEach(btn=>{
+  const action=btn.dataset.action;
+  const run=()=>{
+    if(mode!=='battle'||!P||P.dead) return;
+    touchMove.using=true;
+    if(action==='fire'){ touchMove.fire=true; tryFire(P); }
+    else if(action==='melee') tryMelee(P);
+    else if(action==='dash') tryDash(P);
+    else if(action==='ball') tryBall(P);
+    else if(action==='kick') tryKick(P);
+    else if(action==='meteor') tryMeteor(P);
+    else if(action==='tornado') tryTornado(P);
+    else if(action==='shield') tryShield(P);
+    else if(action==='grapple') tryGrapple(P);
+  };
+  btn.addEventListener('pointerdown', e=>{
+    btn.classList.add('active');
+    run();
+    e.preventDefault();
+  });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(type=>btn.addEventListener(type, ()=>{
+    btn.classList.remove('active');
+    if(action==='fire') touchMove.fire=false;
+  }));
+});
  
 /* ---------------- COMBAT ---------------- */
 function aimDirFor(F){
@@ -1844,18 +1904,20 @@ function loop(){
     raycaster.setFromCamera({x:(mouse.x/innerWidth)*2-1, y:-(mouse.y/innerHeight)*2+1}, camera);
     raycaster.ray.intersectPlane(groundPlane, aimPoint);
     if(aimPoint.length()>500) aimPoint.set(0,0,0);
+    if(touchMove.using && E && !E.dead) aimPoint.copy(E.pos);
  
     if(!P.dead && mode==='battle' && !P.special){
       P.yaw=Math.atan2(aimPoint.x-P.pos.x, aimPoint.z-P.pos.z);
       const mv=new THREE.Vector3();
       if(keys['KeyW']||keys['ArrowUp'])mv.z-=1; if(keys['KeyS']||keys['ArrowDown'])mv.z+=1;
       if(keys['KeyA']||keys['ArrowLeft'])mv.x-=1; if(keys['KeyD']||keys['ArrowRight'])mv.x+=1;
+      mv.x+=touchMove.x; mv.z+=touchMove.z;
       const camYaw=Math.atan2(camera.position.x-P.pos.x, camera.position.z-P.pos.z);
       const f=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
       const s=new THREE.Vector3(-f.z,0,f.x);
       const move=f.clone().multiplyScalar(-mv.z).add(s.multiplyScalar(mv.x));
       applyMove(P, move, dt, 7*P.bot.speedMult);
-      if(mouse.down) tryFire(P);
+      if(mouse.down||touchMove.fire) tryFire(P);
     }
     if(mode==='battle'){ updateAI(dt); updateSpecial(P,dt); updateSpecial(E,dt); }
  
@@ -1972,7 +2034,7 @@ function loop(){
     UI.energyText.textContent=Math.round((1-Math.min(1,P.gunCd/(GUN_CD_BASE[P.bot.cfg.gun]||1)))*100)+'%';
     UI.ultimateText.textContent=Math.min(100,Math.round((playerWins*35+(100-E.hp)*0.65)))+'%';
     UI.armorText.textContent=P.hp<35?'BREAK':P.shieldT>0?'SHIELD':'OK';
-    UI.heatText.textContent=mouse.down?'HIGH':P.gunCd>0?'MED':'LOW';
+    UI.heatText.textContent=(mouse.down||touchMove.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
     UI.miniP.style.left=(50+P.pos.x/ARENA*42)+'%'; UI.miniP.style.top=(50+P.pos.z/ARENA*42)+'%';
     UI.miniE.style.left=(50+E.pos.x/ARENA*42)+'%'; UI.miniE.style.top=(50+E.pos.z/ARENA*42)+'%';
   }
