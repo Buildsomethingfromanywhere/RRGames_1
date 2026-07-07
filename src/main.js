@@ -613,8 +613,8 @@ const HEADS=['visor','cyclops','samurai','hawk','guardian'];
 const SHOULDERS=['heavy','spike','round','missile'];
 const BACKS=['jets','wings','pods'];
 const LEGS=['biped','raptor','hover'];
-const GUNS=['rifle','cannon','gatling'];
-const BLADES=['sword','axe','dual'];
+const GUNS=['rifle','cannon','gatling','blaster','rocket'];
+const BLADES=['sword','axe','dual','spinner'];
 const FRAMES=['standard','bulky','slim'];
 const NAME_DECALS=['shoulder','chest','forearm','shin','off'];
  
@@ -781,6 +781,15 @@ function buildRobot(cfg){
   const coreGlass=M(new THREE.SphereGeometry(0.26,18,12), glowMat, 0,0.18,0.66, torso); coreGlass.scale.z=0.32;
   const coreHalo=M(new THREE.TorusGeometry(0.58,0.025,8,28), glowMat, 0,0.18,0.69, torso); coreHalo.rotation.x=Math.PI/2;
   const coreHalo2=M(new THREE.TorusGeometry(0.36,0.018,8,24), chromeMat, 0,0.18,0.72, torso); coreHalo2.rotation.x=Math.PI/2;
+  const chestSpinner=new THREE.Group(); chestSpinner.position.set(0,0.18,0.86); chestSpinner.visible=cfg.blade==='spinner'; torso.add(chestSpinner);
+  M(new THREE.TorusGeometry(0.5,0.035,8,32), chromeMat, 0,0,0, chestSpinner);
+  for(let i=0;i<4;i++){
+    const a=i*Math.PI/2;
+    const blade=M(new THREE.BoxGeometry(0.13,0.82,0.035), neonLineMat, Math.cos(a)*0.26, Math.sin(a)*0.26, 0.02, chestSpinner);
+    blade.rotation.z=a;
+    const tooth=M(new THREE.ConeGeometry(0.08,0.26,4), chromeMat, Math.cos(a)*0.56, Math.sin(a)*0.56, 0.02, chestSpinner);
+    tooth.rotation.z=a-Math.PI/2;
+  }
   M(new THREE.BoxGeometry(0.2,1.2,0.14), accentMat, -0.6*fw,0,0.52, torso);
   M(new THREE.BoxGeometry(0.2,1.2,0.14), accentMat, 0.6*fw,0,0.52, torso);
   for(let i=0;i<5;i++){
@@ -1000,7 +1009,7 @@ function buildRobot(cfg){
     const mouth=M(new THREE.CylinderGeometry(0.28,0.34,0.24,16), glowMat, 0,0,1.08, gun); mouth.rotation.x=Math.PI/2;
     M(new THREE.TorusGeometry(0.3,0.04,8,16), accentMat, 0,0,0.15, gun);
     M(new THREE.TorusGeometry(0.21,0.025,8,18), chromeMat, 0,0,0.62, gun).rotation.x=Math.PI/2;
-  } else { // gatling
+  } else if(cfg.gun==='gatling') {
     const hub=M(new THREE.CylinderGeometry(0.26,0.26,0.62,12), darkMat, 0,0,0.3, gun); hub.rotation.x=Math.PI/2;
     const spinG=new THREE.Group(); spinG.position.set(0,0,0.65); gun.add(spinG);
     for(let i=0;i<6;i++){
@@ -1011,6 +1020,20 @@ function buildRobot(cfg){
     M(new THREE.TorusGeometry(0.18,0.025,8,18), armorMat, 0,0,0.35, gun).rotation.x=Math.PI/2;
     M(new THREE.TorusGeometry(0.15,0.03,6,14), glowMat, 0,0,1.0, gun);
     gatBarrels.push(spinG);
+  } else if(cfg.gun==='blaster'){
+    M(new THREE.BoxGeometry(0.46,0.4,1.05), heroTrimMat, 0,0,0.42, gun);
+    M(new THREE.BoxGeometry(0.56,0.16,1.28), darkMat, 0,-0.18,0.55, gun);
+    M(new THREE.CylinderGeometry(0.18,0.26,0.55,18), glowMat, 0,0.04,1.02, gun).rotation.x=Math.PI/2;
+    M(new THREE.TorusGeometry(0.24,0.04,8,20), chromeMat, 0,0.04,1.02, gun).rotation.x=Math.PI/2;
+    [-1,1].forEach(s=>neonSlash(gun,0.19*s,0.2,0.38,0.045,0.06,0.78,0));
+  } else { // rocket pods
+    M(new THREE.BoxGeometry(0.68,0.46,0.95), heroTrimMat, 0,0,0.45, gun);
+    for(let r=0;r<2;r++)for(let c=0;c<2;c++){
+      const tube=M(new THREE.CylinderGeometry(0.11,0.12,0.88,14), darkMat, -0.16+c*0.32, -0.1+r*0.2, 0.66, gun);
+      tube.rotation.x=Math.PI/2;
+      M(new THREE.TorusGeometry(0.12,0.02,6,14), glowMat, -0.16+c*0.32, -0.1+r*0.2, 1.12, gun).rotation.x=Math.PI/2;
+    }
+    M(new THREE.BoxGeometry(0.5,0.08,0.9), chromeMat, 0,0.24,0.5, gun);
   }
   const muzzle=new THREE.Object3D(); muzzle.position.set(0,0.04,1.65); gun.add(muzzle);
   const muzzleFlash=new THREE.PointLight(new THREE.Color(cfg.glow), 0, 8); muzzle.add(muzzleFlash);
@@ -1125,7 +1148,7 @@ function buildRobot(cfg){
   ball.scale.setScalar(titanScale);
  
   return {
-    root, torso, head, armR, armL, gun, muzzle, muzzleFlash, sword, jets, gatBarrels, wingParts, hoverRing,
+    root, torso, head, armR, armL, gun, muzzle, muzzleFlash, sword, chestSpinner, jets, gatBarrels, wingParts, hoverRing,
     legL, legR, ball, glowColor:new THREE.Color(cfg.glow), cfg, isHover:cfg.legs==='hover',
     speedMult: cfg.frame==='slim'?1.18 : cfg.frame==='bulky'?0.88 : 1,
     armorMult: cfg.frame==='bulky'?0.8 : cfg.frame==='slim'?1.15 : 1
@@ -1190,14 +1213,14 @@ function fireBolt(owner, from, dir, color, dmg=7, scale=1){
   scene.add(m);
   bullets.push({mesh:m, vel:dir.clone().multiplyScalar(38), owner, life:2.2, dmg});
 }
-function fireMissile(owner, from, target, color){
+function fireMissile(owner, from, target, color, dmg=6, speed=14){
   const g=new THREE.Group();
   const body=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.4,8), new THREE.MeshStandardMaterial({color:0xcfd6dd, metalness:0.9, roughness:0.3}));
   body.rotation.x=Math.PI/2; g.add(body);
   const tip=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.16,8), new THREE.MeshBasicMaterial({color}));
   tip.rotation.x=Math.PI/2; tip.position.z=0.28; g.add(tip);
   g.position.copy(from); scene.add(g);
-  missiles.push({mesh:g, target, owner, life:3, speed:14, vel:new THREE.Vector3(0,5,0)});
+  missiles.push({mesh:g, target, owner, life:3.4, speed, dmg, vel:new THREE.Vector3(0,5,0)});
 }
 function burstSparks(pos, color, count=16, speed=7, up=4){
   for(let i=0;i<count;i++){
@@ -1318,11 +1341,11 @@ const ROBOT_MARKET=[
 let selectedMarket=ROBOT_MARKET[0];
  
 const GUN_CD_BASE={rifle:0.28, cannon:0.55, gatling:0.11};
-const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90};
-const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1};
-const GUN_DMG={rifle:7, cannon:13, gatling:3.2};
-const GUN_RELOAD_RATE={rifle:12, cannon:4.2, gatling:30};
-const GUN_RESERVE_MULT={rifle:2.2, cannon:2.4, gatling:1.6};
+const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90, blaster:18, rocket:6};
+const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1, blaster:1, rocket:1};
+const GUN_DMG={rifle:7, cannon:13, gatling:3.2, blaster:10, rocket:0};
+const GUN_RELOAD_RATE={rifle:12, cannon:4.2, gatling:30, blaster:7.5, rocket:2.2};
+const GUN_RESERVE_MULT={rifle:2.2, cannon:2.4, gatling:1.6, blaster:2.1, rocket:2.8};
 const AMMO_PICKUP_FILL=0.55;
 const SWORD_CD=1.0, DASH_CD=1.6, BALL_CD=6, KICK_CD=5, MET_CD=9, TORNADO_CD=7, SHIELD_CD=8, GRAPPLE_CD=5.5;
 const PLAYER_DAMAGE_TAKEN=0.78, ENEMY_DAMAGE_TAKEN=1.1;
@@ -1413,8 +1436,8 @@ function syncOpt(rowId, val){
   document.getElementById(rowId).querySelectorAll('.opt').forEach(o=>o.classList.toggle('sel', o.dataset.v===val));
 }
 function powerRows(cfg){
-  const gunLabel={rifle:'Pulse Rifle',cannon:'Arm Cannon',gatling:'Spinning Gatling'}[cfg.gun]||cfg.gun;
-  const bladeLabel={sword:'Energy Sword',axe:'Plasma Axe',dual:'Twin Daggers'}[cfg.blade]||cfg.blade;
+  const gunLabel={rifle:'Pulse Rifle',cannon:'Arm Cannon',gatling:'Spinning Gatling',blaster:'Plasma Burst Blaster',rocket:'Homing Rocket Pods'}[cfg.gun]||cfg.gun;
+  const bladeLabel={sword:'Energy Sword',axe:'Plasma Axe',dual:'Twin Daggers',spinner:'Chest Spinning Daggers'}[cfg.blade]||cfg.blade;
   const mobility={biped:'Ground Stride',raptor:'Raptor Leap',hover:'Hover Drift'}[cfg.legs]||cfg.legs;
   const back={jets:'Twin Rocket Jets',wings:'Power Wings',pods:'Back Cannon Pods'}[cfg.back]||cfg.back;
   const shoulder=cfg.shoulder==='missile'?'Homing Missile Pods':cfg.shoulder.toUpperCase();
@@ -1426,7 +1449,7 @@ function powerRows(cfg){
     ['Mobility', `${mobility} + ${back}`],
     ['Transform', 'Q armored vehicle-ball charge'],
     ['Air Strike', 'E Rocket Kick / R Meteor Slam'],
-    ['Advanced', 'T Tornado / G Shield / C Grapple'],
+    ['Advanced', cfg.blade==='spinner'?'T Chest Dagger Storm / G Block / C Hook':'T Tornado / G Block / C Hook'],
     ['Arena', {steel:'Steel Dome',lava:'Lava Pit',sky:'Sky Platform'}[cfg.arena]||'Steel Dome'],
     ['Shoulders', shoulder],
     ['Name Decal', nameDecal]
@@ -1790,7 +1813,23 @@ function tryFire(F){
   F.bot.muzzle.getWorldPosition(tmpV);
   const dir=aimDirFor(F);
   if(type==='gatling'){ dir.x+=(Math.random()-0.5)*0.08; dir.z+=(Math.random()-0.5)*0.08; dir.normalize(); }
-  fireBolt(F, tmpV.clone(), dir, F.bot.glowColor.getHex(), GUN_DMG[type], type==='cannon'?1.5:type==='gatling'?0.7:1);
+  if(type==='rocket'){
+    fireMissile(F, tmpV.clone().add(new THREE.Vector3(0,0.15,0)), other, F.bot.glowColor.getHex(), F.isPlayer?16:12, 17);
+    F.bot.muzzleFlash.intensity=5;
+    F.recoil=0.28;
+    burstSparks(tmpV, 0xffaa44, 10, 7, 4);
+    announce(F.isPlayer?'ROCKET LOCK!':'');
+    return;
+  }
+  if(type==='blaster'){
+    for(let i=0;i<3;i++){
+      const spread=dir.clone();
+      spread.x+=(i-1)*0.035; spread.z+=(Math.random()-0.5)*0.035; spread.normalize();
+      fireBolt(F, tmpV.clone().add(new THREE.Vector3((i-1)*0.12,0.05,0)), spread, F.bot.glowColor.getHex(), GUN_DMG[type]*0.72, 1.15);
+    }
+  } else {
+    fireBolt(F, tmpV.clone(), dir, F.bot.glowColor.getHex(), GUN_DMG[type], type==='cannon'?1.5:type==='gatling'?0.7:1);
+  }
   F.bot.muzzleFlash.intensity=3;
   F.recoil = type==='cannon'?0.2:0.12;
   burstSparks(tmpV, F.bot.glowColor.getHex(), 3, 3, 2);
@@ -1798,16 +1837,17 @@ function tryFire(F){
   if(F.bot.cfg.shoulder==='missile' && Math.random()<(F.isPlayer?0.14:0.1)){
     const other=F.isPlayer?E:P;
     tmpV.y+=1.2;
-    fireMissile(F, tmpV.clone().add(new THREE.Vector3((Math.random()-0.5),0.5,(Math.random()-0.5))), other, F.bot.glowColor.getHex());
+    fireMissile(F, tmpV.clone().add(new THREE.Vector3((Math.random()-0.5),0.5,(Math.random()-0.5))), other, F.bot.glowColor.getHex(), F.isPlayer?8:6, 14);
   }
 }
 function tryMelee(F){
   if(F.swordCd>0||F.dead||F.swingT>0||F.special) return;
-  F.swordCd=SWORD_CD; F.swingT=0.44; F.swingDur=0.44; F._slashHit=false;
-  F.punchDmg=F.bot.cfg.blade==='axe'?18 : F.bot.cfg.blade==='dual'?14 : 16;
-  F.punchReach=F.bot.cfg.blade==='axe'?3.8:3.55;
+  const dur=F.bot.cfg.blade==='axe'?0.76:F.bot.cfg.blade==='dual'?0.68:0.62;
+  F.swordCd=SWORD_CD; F.swingT=dur; F.swingDur=dur; F._slashHit=false;
+  F.punchDmg=F.bot.cfg.blade==='axe'?18 : F.bot.cfg.blade==='dual'?14 : F.bot.cfg.blade==='spinner'?15 : 16;
+  F.punchReach=F.bot.cfg.blade==='axe'?3.8:F.bot.cfg.blade==='spinner'?3.9:3.55;
   F.punchArc=1.0;
-  F.punchAnnounce=F.isPlayer?pick2(['HEAVY HOOK!','UPPERCUT!','KNOCKBACK!']):'';
+  F.punchAnnounce=F.isPlayer?pick2(F.bot.cfg.blade==='spinner'?['CHEST SLASH!','SPINNER HIT!']:['HEAVY HOOK!','UPPERCUT!','KNOCKBACK!']):'';
 }
 function tryDash(F){
   if(F.dashCd>0||F.dead||F.special) return;
@@ -1836,8 +1876,14 @@ function tryMeteor(F){
 }
 function tryTornado(F){
   if(F.tornadoCd>0||F.dead||F.special) return;
-  F.tornadoCd=TORNADO_CD; F.special='tornado'; F.spT=1.2; F.tornadoHitT=0;
-  announce(F.isPlayer?'TORNADO BLADE!':'', F.isPlayer);
+  F.tornadoCd=TORNADO_CD;
+  if(F.bot.cfg.blade==='spinner'){
+    F.special='chestDaggers'; F.spT=2.35; F.tornadoHitT=0;
+    announce(F.isPlayer?'CHEST DAGGER STORM!':'', F.isPlayer);
+  } else {
+    F.special='tornado'; F.spT=1.75; F.tornadoHitT=0;
+    announce(F.isPlayer?'TORNADO BLADE!':'', F.isPlayer);
+  }
 }
 function tryShield(F){
   if(F.shieldCd>0||F.dead) return;
@@ -1952,6 +1998,40 @@ function updateSpecial(F, dt){
   if(!F.special) return;
   const bot=F.bot, other=F.isPlayer?E:P;
   F.spT-=dt;
+
+  /* ===== CHEST DAGGER STORM ===== */
+  if(F.special==='chestDaggers'){
+    const dir=tmpV.copy(other.pos).sub(F.pos).setY(0);
+    if(dir.lengthSq()>0.01){
+      dir.normalize();
+      F.yaw=Math.atan2(dir.x,dir.z);
+      if(F.pos.distanceTo(other.pos)>2.7) F.pos.addScaledVector(dir, 4.6*dt);
+    }
+    bot.root.rotation.y=F.yaw;
+    bot.armL.root.rotation.x=-1.1+Math.sin(F.spT*16)*0.18;
+    bot.armR.root.rotation.x=-1.1+Math.cos(F.spT*16)*0.18;
+    if(bot.chestSpinner){
+      bot.chestSpinner.visible=true;
+      bot.chestSpinner.rotation.z+=dt*34;
+      bot.chestSpinner.scale.setScalar(1.12+Math.sin(F.spT*18)*0.08);
+    }
+    F.tornadoHitT-=dt;
+    if(Math.random()<0.9) burstSparks(F.pos.clone().setY(2.5), F.bot.glowColor.getHex(), 2, 4, 2);
+    if(!other.dead && F.pos.distanceTo(other.pos)<4.0 && F.tornadoHitT<=0){
+      F.tornadoHitT=0.24;
+      damage(other, 7.5, other.pos.clone().setY(1.9));
+      const away=tmpV.copy(other.pos).sub(F.pos).setY(0).normalize();
+      other.vel.add(away.multiplyScalar(5));
+      burstSparks(other.pos.clone().setY(1.9), F.bot.glowColor.getHex(), 16, 7, 5);
+      shake+=0.08;
+    }
+    if(F.spT<=0){
+      if(bot.chestSpinner){ bot.chestSpinner.scale.setScalar(1); bot.chestSpinner.visible=bot.cfg.blade==='spinner'; }
+      bot.armL.root.rotation.x=0; bot.armR.root.rotation.x=0;
+      exitSpecial(F);
+    }
+    return;
+  }
 
   /* ===== TORNADO BLADE ===== */
   if(F.special==='tornado'){
@@ -2240,6 +2320,10 @@ function poseBot(F, dt, t){
     b.root.rotation.x=0;
   }
   if(b.hoverRing) b.hoverRing.rotation.z+=dt*3;
+  if(b.chestSpinner){
+    b.chestSpinner.rotation.z+=dt*(F.special==='chestDaggers'?0:2.4);
+    b.chestSpinner.visible=b.cfg.blade==='spinner'||F.special==='chestDaggers';
+  }
   if(b.gatBarrels.length && (F.gunCd>0||mouse.down&&F.isPlayer)) b.gatBarrels[0].rotation.z+=dt*20;
   b.wingParts.forEach((w,i)=>{ w.rotation.z=Math.sin(t*2+i)*0.06 + (F.dashT>0?0.25*(i?-1:1):0); });
  
@@ -2262,6 +2346,8 @@ function poseBot(F, dt, t){
     } else {
       b.armL.root.rotation.x=-0.4-Math.sin(k*Math.PI)*1.9;
       b.armL.root.rotation.z=0.5-k*1.1;
+      b.sword.rotation.y+=dt*(F.bot.cfg.blade==='dual'?18:10);
+      b.sword.scale.setScalar(1.04+Math.sin(k*Math.PI)*0.16);
       b.torso.rotation.y+=Math.sin(k*Math.PI)*0.35;
     }
     if(k>0.38&&k<0.68&&!F._slashHit){
@@ -2276,6 +2362,8 @@ function poseBot(F, dt, t){
   } else if(!airborne && F.special!=='metFall'){
     F._slashHit=false;
     F.punchDmg=0;
+    b.sword.scale.setScalar(1);
+    b.sword.rotation.y+=dt*(F.bot.cfg.blade==='dual'?3.2:0.7);
     b.armL.root.rotation.x=moving?-sw*0.3-0.15:-0.15+Math.sin(t*1.6)*0.04;
     b.armL.root.rotation.z=0.25;
   }
@@ -2435,7 +2523,7 @@ function loop(){
       if(Math.random()<0.7) burstSparks(m.mesh.position, 0xff9944, 1, 1, 0.5);
       let done=false;
       if(!target.dead && m.mesh.position.distanceTo(goal)<1.2){
-        damage(target, 6, m.mesh.position.clone());
+        damage(target, m.dmg||6, m.mesh.position.clone());
         explosion(m.mesh.position, 0xff8833, false); done=true;
       }
       if(m.mesh.position.y<0.1){ explosion(m.mesh.position,0xff8833,false); done=true; }
