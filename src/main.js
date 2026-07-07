@@ -1294,6 +1294,7 @@ function fighterState(bot, isPlayer){
     gunCd:0, swordCd:0, dashCd:0, ballCd:0, kickCd:0, metCd:0, tornadoCd:0, shieldCd:0, grappleCd:0,
     ammo:ammoMax, ammoMax, reloadWarnT:0,
     dashT:0, swingT:0, hitT:0, walkPh:0, recoil:0,
+    swingDur:0.38, punchDmg:0, punchReach:3.6, punchArc:1.1, punchAnnounce:'CLANK!',
     shieldT:0, tornadoHitT:0,
     special:null, spT:0, spDir:new THREE.Vector3(), spTarget:new THREE.Vector3(), spHit:false,
     ai:{state:'chase', t:0, strafeDir:1}, dead:false};
@@ -1641,7 +1642,8 @@ function updateTouchButtons(){
     return;
   }
   const canAct=!P.special;
-  setTouchReady('fire', canAct && P.gunCd<=0 && P.ammo>0);
+  const closeEnough=E && !E.dead && P.pos.distanceTo(E.pos)<4.7;
+  setTouchReady('fire', canAct && P.gunCd<=0 && (P.ammo>0||closeEnough));
   setTouchReady('melee', canAct && P.swordCd<=0 && P.swingT<=0);
   setTouchReady('dash', canAct && P.dashCd<=0);
   setTouchReady('ball', canAct && P.ballCd<=0);
@@ -1691,8 +1693,15 @@ function playerMoveInput(){
 }
 function playerMoveWorld(F, out){
   const mv=playerMoveInput();
-  const camYaw=Math.atan2(camera.position.x-F.pos.x, camera.position.z-F.pos.z);
-  const f=tmpV.set(-Math.sin(camYaw),0,-Math.cos(camYaw));
+  let f;
+  if(mode==='battle' && E && !E.dead){
+    f=tmpV.copy(E.pos).sub(F.pos).setY(0);
+    if(f.lengthSq()<0.01) f.set(Math.sin(F.yaw),0,Math.cos(F.yaw));
+    else f.normalize();
+  } else {
+    const camYaw=Math.atan2(camera.position.x-F.pos.x, camera.position.z-F.pos.z);
+    f=tmpV.set(-Math.sin(camYaw),0,-Math.cos(camYaw));
+  }
   const s=tmpV2.set(-f.z,0,f.x);
   out.copy(f).multiplyScalar(-mv.z).add(s.multiplyScalar(mv.x));
   if(out.lengthSq()>1) out.normalize();
@@ -1709,6 +1718,17 @@ function aimDirFor(F){
 }
 function tryFire(F){
   if(F.gunCd>0||F.dead||F.special) return;
+  const other=F.isPlayer?E:P;
+  const close=other && !other.dead && F.pos.distanceTo(other.pos)<4.7;
+  if(close){
+    F.gunCd=F.isPlayer?0.32:0.58+Math.random()*0.28;
+    F.swingT=0.28; F.swingDur=0.28; F._slashHit=false;
+    F.punchDmg=F.isPlayer?9:7;
+    F.punchReach=3.35;
+    F.punchArc=0.9;
+    F.punchAnnounce=F.isPlayer?pick2(['JAB!','BODY SHOT!','STEEL HIT!']):'';
+    return;
+  }
   const type=F.bot.cfg.gun;
   const cost=GUN_AMMO_COST[type]||1;
   if(F.ammo<cost){
@@ -1717,7 +1737,7 @@ function tryFire(F){
     else return;
   }
   F.ammo=Math.max(0,F.ammo-cost);
-  F.gunCd = F.isPlayer? GUN_CD_BASE[type] : GUN_CD_BASE[type]*2.2+Math.random()*0.3;
+  F.gunCd = F.isPlayer? GUN_CD_BASE[type]*1.25 : GUN_CD_BASE[type]*3+Math.random()*0.55;
   F.bot.muzzle.getWorldPosition(tmpV);
   const dir=aimDirFor(F);
   if(type==='gatling'){ dir.x+=(Math.random()-0.5)*0.08; dir.z+=(Math.random()-0.5)*0.08; dir.normalize(); }
@@ -1734,7 +1754,11 @@ function tryFire(F){
 }
 function tryMelee(F){
   if(F.swordCd>0||F.dead||F.swingT>0||F.special) return;
-  F.swordCd=SWORD_CD; F.swingT=0.38; F._slashHit=false;
+  F.swordCd=SWORD_CD; F.swingT=0.44; F.swingDur=0.44; F._slashHit=false;
+  F.punchDmg=F.bot.cfg.blade==='axe'?18 : F.bot.cfg.blade==='dual'?14 : 16;
+  F.punchReach=F.bot.cfg.blade==='axe'?3.8:3.55;
+  F.punchArc=1.0;
+  F.punchAnnounce=F.isPlayer?pick2(['HEAVY HOOK!','UPPERCUT!','KNOCKBACK!']):'';
 }
 function tryDash(F){
   if(F.dashCd>0||F.dead||F.special) return;
@@ -1868,7 +1892,7 @@ function meleeHitCheck(F, dmg, reach, arc){
   if(dist<reach && Math.abs(dy)<arc){
     damage(other, dmg, other.pos.clone().setY(2));
     explosion(other.pos.clone().setY(1.8), F.bot.glowColor.getHex(), false);
-    other.vel.add(new THREE.Vector3(Math.sin(F.yaw),0,Math.cos(F.yaw)).multiplyScalar(10));
+    other.vel.add(new THREE.Vector3(Math.sin(F.yaw),0,Math.cos(F.yaw)).multiplyScalar(dmg>12?12:7));
     return true;
   }
   return false;
@@ -2069,8 +2093,8 @@ function updateAI(dt){
   if(ai.t<=0){
     ai.t=1.15+Math.random()*1.55;
     if(dist>16) ai.state='chase';
-    else if(dist<4.5&&Math.random()<0.42) ai.state='slash';
-    else ai.state=Math.random()<0.48?'strafe':'chase';
+    else if(dist<4.8&&Math.random()<0.62) ai.state='slash';
+    else ai.state=Math.random()<0.56?'strafe':'chase';
     ai.strafeDir=Math.random()<0.5?-1:1;
     if(Math.random()<0.1&&E.dashCd<=0) tryDash(E);
     // specials
@@ -2089,13 +2113,13 @@ function updateAI(dt){
   const fwd=new THREE.Vector3(Math.sin(E.yaw),0,Math.cos(E.yaw));
   const side=new THREE.Vector3(fwd.z,0,-fwd.x);
   let move=new THREE.Vector3();
-  if(ai.state==='chase'&&dist>5) move.add(fwd);
+  if(ai.state==='chase'&&dist>3.8) move.add(fwd);
   if(ai.state==='strafe'){ move.add(side.multiplyScalar(ai.strafeDir));
-    if(dist>12)move.add(fwd.clone().multiplyScalar(0.5));
-    if(dist<6)move.add(fwd.clone().multiplyScalar(-0.6)); }
-  if(ai.state==='slash'){ move.add(fwd); if(dist<3.4){ tryMelee(E); ai.state='strafe'; } }
+    if(dist>6.5)move.add(fwd.clone().multiplyScalar(0.65));
+    if(dist<3.1)move.add(fwd.clone().multiplyScalar(-0.7)); }
+  if(ai.state==='slash'){ move.add(fwd); if(dist<3.7){ (Math.random()<0.58?tryFire:tryMelee)(E); ai.state='strafe'; } }
   applyMove(E, move, dt, 5.45*E.bot.speedMult);
-  if(dist>4&&Math.abs(dy)<0.5) tryFire(E);
+  if(dist>8&&Math.abs(dy)<0.45&&Math.random()<0.035) tryFire(E);
 }
  
 /* ---------------- MOVEMENT ---------------- */
@@ -2158,20 +2182,30 @@ function poseBot(F, dt, t){
   }
   if(F.swingT>0){
     F.swingT-=dt;
-    const k=1-(F.swingT/0.38);
-    b.armL.root.rotation.x=-0.4-Math.sin(k*Math.PI)*1.9;
-    b.armL.root.rotation.z=0.5-k*1.1;
-    b.torso.rotation.y+=Math.sin(k*Math.PI)*0.35;
-    if(k>0.4&&k<0.6&&!F._slashHit){
+    const dur=F.swingDur||0.38;
+    const k=1-(F.swingT/dur);
+    const isJab=F.punchDmg && F.punchDmg<=10;
+    if(isJab){
+      b.armR.root.rotation.x=-Math.PI/2.15-Math.sin(k*Math.PI)*1.15;
+      b.armR.root.rotation.z=(F.isPlayer?-0.18:0.18)*Math.sin(k*Math.PI);
+      b.torso.rotation.y+=Math.sin(k*Math.PI)*0.16;
+    } else {
+      b.armL.root.rotation.x=-0.4-Math.sin(k*Math.PI)*1.9;
+      b.armL.root.rotation.z=0.5-k*1.1;
+      b.torso.rotation.y+=Math.sin(k*Math.PI)*0.35;
+    }
+    if(k>0.38&&k<0.68&&!F._slashHit){
       F._slashHit=true;
-      const dmg=F.bot.cfg.blade==='axe'?19 : F.bot.cfg.blade==='dual'?12 : 16;
-      const reach=F.bot.cfg.blade==='axe'?3.9:3.6;
-      if(meleeHitCheck(F,dmg,reach,1.1)) announce(F.isPlayer?pick2(['CLANK!','SLICE!','KA-CHING!']):'');
-      if(F.bot.cfg.blade==='dual' && !F._dualQueued){ F._dualQueued=true;
+      const dmg=F.punchDmg || (F.bot.cfg.blade==='axe'?19 : F.bot.cfg.blade==='dual'?12 : 16);
+      const reach=F.punchReach || (F.bot.cfg.blade==='axe'?3.9:3.6);
+      const arc=F.punchArc || 1.1;
+      if(meleeHitCheck(F,dmg,reach,arc)) announce(F.isPlayer?F.punchAnnounce||pick2(['CLANK!','BODY SHOT!']):'');
+      if(!isJab && F.bot.cfg.blade==='dual' && !F._dualQueued){ F._dualQueued=true;
         setTimeout(()=>{ if(!F.dead&&mode==='battle'){ F.swingT=0.3; F._slashHit=false; F._dualQueued=false; } }, 140); }
     }
   } else if(!airborne && F.special!=='metFall'){
     F._slashHit=false;
+    F.punchDmg=0;
     b.armL.root.rotation.x=moving?-sw*0.3-0.15:-0.15+Math.sin(t*1.6)*0.04;
     b.armL.root.rotation.z=0.25;
   }
@@ -2374,11 +2408,13 @@ function loop(){
  
     /* camera */
     const focus=P.dead?E.pos:P.pos;
-    const lookTarget=tmpV.copy(focus).lerp(E.dead?focus:E.pos,0.3).setY(3.25+(P.special?P.y*0.4:0));
+    const boxingDist=E&&!E.dead?focus.distanceTo(E.pos):10;
+    const lookTarget=tmpV.copy(focus).lerp(E.dead?focus:E.pos,0.42).setY(3.05+(P.special?P.y*0.4:0));
     const camYawIdeal=P.dead?t*0.3:Math.atan2(focus.x-lookTarget.x, focus.z-lookTarget.z);
     const behind=tmpV2.set(Math.sin(camYawIdeal),0,Math.cos(camYawIdeal));
-    const camH = 9.4 + (P.special&&P.y>2? P.y*0.55:0);
-    const desired=focus.clone().addScaledVector(behind,15).setY(camH);
+    const camH = (boxingDist<7?7.6:9.4) + (P.special&&P.y>2? P.y*0.55:0);
+    const camDist = boxingDist<7?11.5:15;
+    const desired=focus.clone().addScaledVector(behind,camDist).setY(camH);
     camera.position.lerp(desired, Math.min(1,dt*5.8));
     if(shake>0){ shake=Math.max(0,shake-dt*1.4);
       camera.position.x+=(Math.random()-0.5)*shake;
