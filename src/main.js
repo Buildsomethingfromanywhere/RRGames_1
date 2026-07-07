@@ -335,7 +335,71 @@ const weatherFX = {rain:null, lightning:[]};
     gate.position.set(g[0],2.7,g[1]); gate.rotation.y=g[2]; gate.castShadow=true; scene.add(gate);
     const glow=new THREE.Mesh(new THREE.BoxGeometry(8.8,3.8,0.08), new THREE.MeshBasicMaterial({color:i%2?0xff5a4e:0x37d5ff, transparent:true, opacity:0.22}));
     glow.position.set(g[0],2.7,g[1]); glow.rotation.y=g[2]; scene.add(glow);
+    const doorA=new THREE.Mesh(new THREE.BoxGeometry(0.18,4.7,0.12), trussMat);
+    doorA.position.set(g[0]-Math.cos(g[2])*2.8,g[1]?2.7:2.7,g[1]-Math.sin(g[2])*2.8); doorA.rotation.y=g[2]; scene.add(doorA);
+    const doorB=doorA.clone(); doorB.position.set(g[0]+Math.cos(g[2])*2.8,2.7,g[1]+Math.sin(g[2])*2.8); scene.add(doorB);
   });
+
+  const hazardMat=new THREE.MeshBasicMaterial({color:0xffd23f, transparent:true, opacity:0.58, side:THREE.DoubleSide});
+  const grateMat=new THREE.MeshPhysicalMaterial({color:0x131a22, metalness:0.92, roughness:0.3, clearcoat:0.2, envMap:studioEnvMap, envMapIntensity:0.9});
+  const arenaDarkMat=new THREE.MeshStandardMaterial({color:0x070b10, metalness:0.72, roughness:0.42});
+  for(let i=0;i<4;i++){
+    const rot=i*Math.PI/2;
+    const trench=new THREE.Mesh(new THREE.BoxGeometry(20,0.06,1.15), grateMat);
+    trench.position.set(Math.sin(rot)*18,0.075,Math.cos(rot)*18);
+    trench.rotation.y=rot; trench.receiveShadow=true; scene.add(trench);
+    for(let n=-8;n<=8;n++){
+      const slat=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.18), railMat);
+      slat.position.set(trench.position.x+Math.cos(rot)*n,0.13,trench.position.z-Math.sin(rot)*n);
+      slat.rotation.y=rot; scene.add(slat);
+    }
+    const warning=new THREE.Mesh(new THREE.RingGeometry(ARENA-5-i*1.2,ARENA-4.72-i*1.2,96,1,rot,Math.PI/5), hazardMat);
+    warning.rotation.x=-Math.PI/2; warning.position.y=0.095; scene.add(warning);
+  }
+  function addFloorText(text,x,z,rot=0){
+    const cv=document.createElement('canvas'); cv.width=512; cv.height=128;
+    const cx=cv.getContext('2d');
+    cx.clearRect(0,0,512,128); cx.fillStyle='rgba(255,210,63,.78)';
+    cx.font='900 52px Segoe UI, Arial'; cx.textAlign='center'; cx.textBaseline='middle';
+    cx.fillText(text,256,66);
+    const tex=new THREE.CanvasTexture(cv);
+    const mark=new THREE.Mesh(new THREE.PlaneGeometry(7,1.75), new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0.62, side:THREE.DoubleSide}));
+    mark.position.set(x,0.105,z); mark.rotation.x=-Math.PI/2; mark.rotation.z=rot; scene.add(mark);
+  }
+  addFloorText('DANGER ZONE',0,-24,0);
+  addFloorText('IMPACT LANE',0,24,Math.PI);
+  addFloorText('SERVICE BAY',-24,0,Math.PI/2);
+  addFloorText('MEDIA RAIL',24,0,-Math.PI/2);
+  const cableMat=new THREE.MeshStandardMaterial({color:0x05070a, metalness:0.35, roughness:0.65});
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2;
+    const cable=new THREE.Mesh(new THREE.TorusGeometry(ARENA+2.5+i%2*1.4,0.035,6,96,Math.PI/2), cableMat);
+    cable.rotation.x=Math.PI/2; cable.rotation.z=a; cable.position.y=0.16; scene.add(cable);
+  }
+  function addServiceCart(x,z,rot){
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.62,1.25), new THREE.MeshStandardMaterial({color:0xb96b24, metalness:0.55, roughness:0.42}));
+    body.position.y=0.56; body.castShadow=true; g.add(body);
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(0.75,0.55,0.9), glassMat);
+    cab.position.set(-0.45,1.05,0); g.add(cab);
+    [-1,1].forEach(s=>[-1,1].forEach(f=>{
+      const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.18,12), arenaDarkMat);
+      wheel.position.set(0.78*f,0.22,0.58*s); wheel.rotation.z=Math.PI/2; g.add(wheel);
+    }));
+    const beacon=new THREE.PointLight(0xffd23f,0.8,6); beacon.position.set(0.75,1.22,0); g.add(beacon);
+    g.position.set(x,0,z); g.rotation.y=rot; scene.add(g);
+  }
+  addServiceCart(-30,-26,0.45);
+  addServiceCart(29,25,-2.55);
+  for(let i=0;i<10;i++){
+    const a=i/10*Math.PI*2;
+    const camRig=new THREE.Group();
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,2.3,8), railMat); post.position.y=1.15; camRig.add(post);
+    const cam=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.25,0.32), arenaDarkMat); cam.position.set(0,2.32,0.22); camRig.add(cam);
+    const lens=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.12,12), new THREE.MeshBasicMaterial({color:0x37d5ff})); lens.position.set(0,2.32,0.45); lens.rotation.x=Math.PI/2; camRig.add(lens);
+    camRig.position.set(Math.cos(a)*(ARENA+4.5),0,Math.sin(a)*(ARENA+4.5));
+    camRig.lookAt(0,1.8,0); scene.add(camRig);
+  }
  
   const pylonMat=new THREE.MeshStandardMaterial({map:makeMetalTexture('#5a6570',80), metalness:0.85, roughness:0.4});
   [[-ARENA+3,-ARENA+3],[ARENA-3,-ARENA+3],[-ARENA+3,ARENA-3],[ARENA-3,ARENA-3]].forEach((p,i)=>{
@@ -1453,6 +1517,21 @@ function updateGamepadInput(){
   pressGamepadAction('tornado', !!gp.buttons[8]?.pressed, ()=>tryTornado(P));
   pressGamepadAction('grapple', !!gp.buttons[9]?.pressed, ()=>tryGrapple(P));
 }
+function playerMoveInput(){
+  return {
+    x:(keys['KeyA']||keys['ArrowLeft']?-1:0)+(keys['KeyD']||keys['ArrowRight']?1:0)+touchMove.x+gamepadInput.x,
+    z:(keys['KeyW']||keys['ArrowUp']?-1:0)+(keys['KeyS']||keys['ArrowDown']?1:0)+touchMove.z+gamepadInput.z
+  };
+}
+function playerMoveWorld(F, out){
+  const mv=playerMoveInput();
+  const camYaw=Math.atan2(camera.position.x-F.pos.x, camera.position.z-F.pos.z);
+  const f=tmpV.set(-Math.sin(camYaw),0,-Math.cos(camYaw));
+  const s=tmpV2.set(-f.z,0,f.x);
+  out.copy(f).multiplyScalar(-mv.z).add(s.multiplyScalar(mv.x));
+  if(out.lengthSq()>1) out.normalize();
+  return out;
+}
  
 /* ---------------- COMBAT ---------------- */
 function aimDirFor(F){
@@ -1665,13 +1744,20 @@ function updateSpecial(F, dt){
       bot.root.visible=false; bot.root.scale.setScalar(1); bot.root.rotation.x=0;
       bot.ball.visible=true;
       bot.ball.position.copy(F.pos).setY(1.1);
-      const target=F.isPlayer? aimPoint.clone() : other.pos.clone();
-      F.spDir.copy(target.sub(F.pos).setY(0)).normalize();
+      if(F.isPlayer && playerMoveWorld(F,tmpV).lengthSq()>0.02) F.spDir.copy(tmpV).normalize();
+      else {
+        const target=F.isPlayer? aimPoint.clone() : other.pos.clone();
+        F.spDir.copy(target.sub(F.pos).setY(0)).normalize();
+      }
       burstSparks(F.pos.clone().setY(1), F.bot.glowColor.getHex(), 14, 8, 4);
       shake+=0.2;
     }
   } else if(F.special==='ballRoll'){
     const speed=26;
+    if(F.isPlayer && playerMoveWorld(F,tmpV).lengthSq()>0.03){
+      F.spDir.lerp(tmpV.normalize(), Math.min(1,dt*5.2)).normalize();
+      F.yaw=Math.atan2(F.spDir.x,F.spDir.z);
+    }
     F.pos.addScaledVector(F.spDir, speed*dt);
     const lim=ARENA-1.4;
     let bounced=false;
@@ -2020,14 +2106,7 @@ function loop(){
  
     if(!P.dead && mode==='battle' && !P.special){
       P.yaw=Math.atan2(aimPoint.x-P.pos.x, aimPoint.z-P.pos.z);
-      const mv=new THREE.Vector3();
-      if(keys['KeyW']||keys['ArrowUp'])mv.z-=1; if(keys['KeyS']||keys['ArrowDown'])mv.z+=1;
-      if(keys['KeyA']||keys['ArrowLeft'])mv.x-=1; if(keys['KeyD']||keys['ArrowRight'])mv.x+=1;
-      mv.x+=touchMove.x+gamepadInput.x; mv.z+=touchMove.z+gamepadInput.z;
-      const camYaw=Math.atan2(camera.position.x-P.pos.x, camera.position.z-P.pos.z);
-      const f=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
-      const s=new THREE.Vector3(-f.z,0,f.x);
-      const move=f.clone().multiplyScalar(-mv.z).add(s.multiplyScalar(mv.x));
+      const move=playerMoveWorld(P,new THREE.Vector3());
       applyMove(P, move, dt, 7*P.bot.speedMult);
       if(mouse.down||touchMove.fire||gamepadInput.fire) tryFire(P);
     }
