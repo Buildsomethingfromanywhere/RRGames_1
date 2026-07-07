@@ -5,8 +5,17 @@ import './styles.css';
    ========================================================= */
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+function viewportSize(){
+  const vv=window.visualViewport;
+  return {w:Math.max(1,Math.floor(vv?.width||innerWidth)), h:Math.max(1,Math.floor(vv?.height||innerHeight))};
+}
+function applyViewportSize(){
+  const {w,h}=viewportSize();
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -18,6 +27,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0f1a);
 scene.fog = new THREE.Fog(0x0a0f1a, 60, 160);
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 400);
+applyViewportSize();
  
 /* ---------------- LIGHTING ---------------- */
 scene.add(new THREE.HemisphereLight(0x8fb8ff, 0x1a1410, 0.55));
@@ -1090,6 +1100,15 @@ const UI={};
  'comboText','timerText','energyText','ultimateText','armorText','heatText','miniP','miniE',
  'shop','botMarket','shopPowers','garagePowers']
  .forEach(id=>UI[id]=document.getElementById(id));
+const fullscreenBtn=document.getElementById('fullscreenBtn');
+async function enterFullscreen(){
+  const el=document.documentElement;
+  try{
+    if(!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({navigationUI:'hide'});
+  }catch(e){}
+  applyViewportSize();
+}
+fullscreenBtn?.addEventListener('click', enterFullscreen);
  
 let mode='shop';
 const keys={};
@@ -2099,7 +2118,8 @@ function loop(){
       F.shieldT=Math.max(0,F.shieldT-dt);
     });
  
-    raycaster.setFromCamera({x:(mouse.x/innerWidth)*2-1, y:-(mouse.y/innerHeight)*2+1}, camera);
+    const vp=viewportSize();
+    raycaster.setFromCamera({x:(mouse.x/vp.w)*2-1, y:-(mouse.y/vp.h)*2+1}, camera);
     raycaster.ray.intersectPlane(groundPlane, aimPoint);
     if(aimPoint.length()>500) aimPoint.set(0,0,0);
     if((touchMove.using||gamepadInput.using) && E && !E.dead) aimPoint.copy(E.pos);
@@ -2235,8 +2255,7 @@ function loop(){
 }
 loop();
  
-window.addEventListener('resize', ()=>{
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+window.addEventListener('resize', applyViewportSize);
+window.visualViewport?.addEventListener('resize', applyViewportSize);
+window.visualViewport?.addEventListener('scroll', applyViewportSize);
+window.addEventListener('orientationchange', ()=>setTimeout(applyViewportSize, 180));
