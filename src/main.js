@@ -1120,12 +1120,20 @@ function makeAmmoPickup(x,z){
   ammoPickups.push({g,x,z,active:true,respawn:0,baseY:0});
 }
 function refillAmmo(F, pickup){
-  F.ammo=F.ammoMax;
+  const magNeed=F.ammoMax-F.ammo;
+  const reserveNeed=F.ammoReserveMax-F.ammoReserve;
+  const fill=Math.ceil((F.ammoMax+F.ammoReserveMax)*AMMO_PICKUP_FILL);
+  const toMag=Math.min(magNeed, Math.ceil(fill*0.35));
+  const toReserve=Math.min(reserveNeed, fill-toMag);
+  F.ammo+=toMag;
+  F.ammoReserve+=toReserve;
+  F.reloadT=0;
+  F.reloadDelay=0.15;
   pickup.active=false;
-  pickup.respawn=12;
+  pickup.respawn=10;
   pickup.g.visible=false;
   burstSparks(F.pos.clone().setY(1), 0x37d5ff, 18, 6, 5);
-  if(F.isPlayer) announce('AMMO REFILLED!', true);
+  if(F.isPlayer) announce(toReserve>0?'RESERVE AMMO LOADED!':'MAGAZINE TOPPED!', true);
 }
 function updateAmmoPickups(dt,t){
   ammoPickups.forEach(p=>{
@@ -1137,7 +1145,7 @@ function updateAmmoPickups(dt,t){
     p.g.position.y=0.08+Math.sin(t*3+p.x)*0.07;
     p.g.rotation.y+=dt*0.9;
     [P,E].forEach(F=>{
-      if(F&&!F.dead&&F.ammo<F.ammoMax&&F.pos.distanceTo(p.g.position)<1.9) refillAmmo(F,p);
+      if(F&&!F.dead&&(F.ammo<F.ammoMax||F.ammoReserve<F.ammoReserveMax)&&F.pos.distanceTo(p.g.position)<1.9) refillAmmo(F,p);
     });
   });
 }
@@ -1283,16 +1291,20 @@ const GUN_CD_BASE={rifle:0.28, cannon:0.55, gatling:0.11};
 const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90};
 const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1};
 const GUN_DMG={rifle:7, cannon:13, gatling:3.2};
+const GUN_RELOAD_RATE={rifle:12, cannon:4.2, gatling:30};
+const GUN_RESERVE_MULT={rifle:2.2, cannon:2.4, gatling:1.6};
+const AMMO_PICKUP_FILL=0.55;
 const SWORD_CD=1.0, DASH_CD=1.6, BALL_CD=6, KICK_CD=5, MET_CD=9, TORNADO_CD=7, SHIELD_CD=8, GRAPPLE_CD=5.5;
 const PLAYER_DAMAGE_TAKEN=0.78, ENEMY_DAMAGE_TAKEN=1.1;
 let roundNo=1, playerWins=0, enemyWins=0, matchOver=false;
  
 function fighterState(bot, isPlayer){
   const ammoMax=GUN_AMMO_MAX[bot.cfg.gun]||24;
+  const ammoReserveMax=Math.ceil(ammoMax*(GUN_RESERVE_MULT[bot.cfg.gun]||2));
   return {bot, hp:100, isPlayer,
     pos:bot.root.position, yaw:0, vel:new THREE.Vector3(), y:0, vy:0,
     gunCd:0, swordCd:0, dashCd:0, ballCd:0, kickCd:0, metCd:0, tornadoCd:0, shieldCd:0, grappleCd:0,
-    ammo:ammoMax, ammoMax, reloadWarnT:0,
+    ammo:ammoMax, ammoMax, ammoReserve:ammoReserveMax, ammoReserveMax, reloadT:0, reloadDelay:0, reloadWarnT:0,
     dashT:0, swingT:0, hitT:0, walkPh:0, recoil:0,
     swingDur:0.38, punchDmg:0, punchReach:3.6, punchArc:1.1, punchAnnounce:'CLANK!',
     shieldT:0, tornadoHitT:0,
@@ -1732,11 +1744,18 @@ function tryFire(F){
   const type=F.bot.cfg.gun;
   const cost=GUN_AMMO_COST[type]||1;
   if(F.ammo<cost){
-    if(F.isPlayer && F.reloadWarnT<=0){ announce('AMMO EMPTY - FIND REFILL!', true); F.reloadWarnT=1.2; }
-    if(!F.isPlayer) F.ammo=Math.max(F.ammo, Math.ceil(F.ammoMax*0.35));
-    else return;
+    if(F.ammoReserve>0){
+      F.reloadDelay=0;
+      F.reloadT=Math.max(F.reloadT, 0.25);
+      if(F.isPlayer && F.reloadWarnT<=0){ announce('RELOADING!', true); F.reloadWarnT=0.8; }
+    } else if(F.isPlayer && F.reloadWarnT<=0){
+      announce('OUT OF RESERVE - GRAB AMMO!', true); F.reloadWarnT=1.2;
+    }
+    if(!F.isPlayer && F.ammoReserve<=0) F.ammoReserve=Math.max(F.ammoReserve, Math.ceil(F.ammoMax*0.5));
+    return;
   }
   F.ammo=Math.max(0,F.ammo-cost);
+  F.reloadDelay=F.isPlayer?0.72:1.1;
   F.gunCd = F.isPlayer? GUN_CD_BASE[type]*1.25 : GUN_CD_BASE[type]*3+Math.random()*0.55;
   F.bot.muzzle.getWorldPosition(tmpV);
   const dir=aimDirFor(F);
@@ -2122,6 +2141,27 @@ function updateAI(dt){
   if(dist>8&&Math.abs(dy)<0.45&&Math.random()<0.035) tryFire(E);
 }
  
+function updateAmmoSystem(F, dt, wantsFire=false){
+  if(!F||F.dead) return;
+  F.reloadWarnT=Math.max(0,F.reloadWarnT-dt);
+  F.reloadDelay=Math.max(0,F.reloadDelay-dt);
+  if(F.ammo>=F.ammoMax||F.ammoReserve<=0||F.special) return;
+  if(wantsFire && F.ammo>0) return;
+  if(F.reloadDelay>0) return;
+  const rate=GUN_RELOAD_RATE[F.bot.cfg.gun]||10;
+  F.reloadT+=dt*rate;
+  const rounds=Math.floor(F.reloadT);
+  if(rounds<=0) return;
+  const move=Math.min(rounds, F.ammoMax-F.ammo, F.ammoReserve);
+  F.ammo+=move;
+  F.ammoReserve-=move;
+  F.reloadT-=move;
+  if(F.isPlayer && move>0 && F.ammo===move && F.reloadWarnT<=0){
+    announce('MAGAZINE READY!', true);
+    F.reloadWarnT=0.7;
+  }
+}
+
 /* ---------------- MOVEMENT ---------------- */
 function applyMove(F, move, dt, speed){
   if(move.lengthSq()>0){ move.normalize(); F.walkPh+=dt*9; }
@@ -2307,8 +2347,9 @@ function loop(){
       F.ballCd=Math.max(0,F.ballCd-dt); F.kickCd=Math.max(0,F.kickCd-dt); F.metCd=Math.max(0,F.metCd-dt);
       F.tornadoCd=Math.max(0,F.tornadoCd-dt); F.shieldCd=Math.max(0,F.shieldCd-dt); F.grappleCd=Math.max(0,F.grappleCd-dt);
       F.shieldT=Math.max(0,F.shieldT-dt);
-      F.reloadWarnT=Math.max(0,F.reloadWarnT-dt);
     });
+    updateAmmoSystem(P, dt, mouse.down||touchMove.fire||gamepadInput.fire);
+    updateAmmoSystem(E, dt, false);
  
     const vp=viewportSize();
     raycaster.setFromCamera({x:(mouse.x/vp.w)*2-1, y:-(mouse.y/vp.h)*2+1}, camera);
@@ -2424,7 +2465,10 @@ function loop(){
  
     UI.reticle.style.left=mouse.x+'px'; UI.reticle.style.top=mouse.y+'px';
     const gcd=GUN_CD_BASE[P.bot.cfg.gun];
-    UI.cfGun.style.height=(P.gunCd/gcd*100)+'%'; UI.slotGun.classList.toggle('ready',P.gunCd<=0&&P.ammo>0);
+    const closeEnough=E && !E.dead && P.pos.distanceTo(E.pos)<4.7;
+    const reloadFill=P.ammo<P.ammoMax&&P.ammoReserve>0 ? 100-(P.ammo/P.ammoMax*100) : 0;
+    UI.cfGun.style.height=(P.gunCd>0?P.gunCd/gcd*100:reloadFill)+'%';
+    UI.slotGun.classList.toggle('ready',P.gunCd<=0&&(P.ammo>0||closeEnough));
     UI.cfSword.style.height=(P.swordCd/SWORD_CD*100)+'%'; UI.slotSword.classList.toggle('ready',P.swordCd<=0);
     UI.cfDash.style.height=(P.dashCd/DASH_CD*100)+'%'; UI.slotDash.classList.toggle('ready',P.dashCd<=0);
     UI.cfBall.style.height=(P.ballCd/BALL_CD*100)+'%'; UI.slotBall.classList.toggle('ready',P.ballCd<=0);
@@ -2437,10 +2481,10 @@ function loop(){
     const combo=Math.max(0,Math.min(12,Math.floor((100-E.hp)/9)));
     UI.comboText.textContent=combo+' HIT';
     UI.timerText.textContent=Math.max(0,90-Math.floor((performance.now()/1000)%90));
-    UI.energyText.textContent=`${P.ammo}/${P.ammoMax}`;
+    UI.energyText.textContent=`${P.ammo}/${P.ammoMax}+${P.ammoReserve}`;
     UI.ultimateText.textContent=Math.min(100,Math.round((playerWins*35+(100-E.hp)*0.65)))+'%';
     UI.armorText.textContent=P.hp<35?'BREAK':P.shieldT>0?'SHIELD':'OK';
-    UI.heatText.textContent=P.ammo<=0?'EMPTY':(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
+    UI.heatText.textContent=P.ammo<=0&&P.ammoReserve<=0?'REFILL':P.ammo<P.ammoMax&&P.ammoReserve>0?'RELOAD':(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
     UI.miniP.style.left=(50+P.pos.x/ARENA*42)+'%'; UI.miniP.style.top=(50+P.pos.z/ARENA*42)+'%';
     UI.miniE.style.left=(50+E.pos.x/ARENA*42)+'%'; UI.miniE.style.top=(50+E.pos.z/ARENA*42)+'%';
   }
