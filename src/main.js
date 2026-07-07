@@ -991,6 +991,7 @@ let mode='shop';
 const keys={};
 const mouse={x:innerWidth/2, y:innerHeight/2, down:false};
 const touchMove={x:0, z:0, active:false, fire:false, using:false};
+const gamepadInput={x:0, z:0, fire:false, using:false, prev:{}};
 const touchButtons={};
 document.querySelectorAll('.touchBtn').forEach(btn=>{ touchButtons[btn.dataset.action]=btn; });
 const raycaster=new THREE.Raycaster();
@@ -1288,6 +1289,9 @@ canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); if(mode==='battl
 
 const movePad=document.getElementById('movePad');
 const moveKnob=document.getElementById('moveKnob');
+function haptic(ms=18){
+  if(navigator.vibrate) navigator.vibrate(ms);
+}
 function resetTouchMove(){
   touchMove.x=0; touchMove.z=0; touchMove.active=false;
   if(moveKnob) moveKnob.style.transform='translate(0px,0px)';
@@ -1333,6 +1337,7 @@ document.querySelectorAll('.touchBtn').forEach(btn=>{
     else if(action==='tornado') tryTornado(P);
     else if(action==='shield') tryShield(P);
     else if(action==='grapple') tryGrapple(P);
+    haptic(action==='fire'?8:18);
   };
   btn.addEventListener('pointerdown', e=>{
     btn.classList.add('active');
@@ -1365,6 +1370,38 @@ function updateTouchButtons(){
   setTouchReady('tornado', canAct && P.tornadoCd<=0);
   setTouchReady('shield', P.shieldCd<=0);
   setTouchReady('grapple', canAct && P.grappleCd<=0);
+}
+function pressGamepadAction(name, pressed, callback){
+  if(pressed && !gamepadInput.prev[name]){
+    callback();
+    haptic(14);
+  }
+  gamepadInput.prev[name]=pressed;
+}
+function updateGamepadInput(){
+  gamepadInput.x=0; gamepadInput.z=0; gamepadInput.fire=false;
+  const pads=navigator.getGamepads?navigator.getGamepads():[];
+  const gp=[...pads].find(p=>p&&p.connected);
+  if(!gp||mode!=='battle'||!P||P.dead) return;
+  const dz=0.18;
+  const ax=Math.abs(gp.axes[0]||0)>dz ? gp.axes[0] : 0;
+  const ay=Math.abs(gp.axes[1]||0)>dz ? gp.axes[1] : 0;
+  const dLeft=gp.buttons[14]?.pressed, dRight=gp.buttons[15]?.pressed;
+  const dUp=gp.buttons[12]?.pressed, dDown=gp.buttons[13]?.pressed;
+  gamepadInput.x=(dLeft?-1:0)+(dRight?1:0)+ax;
+  gamepadInput.z=(dUp?-1:0)+(dDown?1:0)+ay;
+  gamepadInput.x=Math.max(-1,Math.min(1,gamepadInput.x));
+  gamepadInput.z=Math.max(-1,Math.min(1,gamepadInput.z));
+  gamepadInput.fire=!!(gp.buttons[0]?.pressed||gp.buttons[7]?.pressed);
+  gamepadInput.using=gamepadInput.using||Math.abs(gamepadInput.x)>0||Math.abs(gamepadInput.z)>0||gamepadInput.fire;
+  pressGamepadAction('melee', !!gp.buttons[1]?.pressed, ()=>tryMelee(P));
+  pressGamepadAction('dash', !!gp.buttons[2]?.pressed, ()=>tryDash(P));
+  pressGamepadAction('shield', !!gp.buttons[3]?.pressed, ()=>tryShield(P));
+  pressGamepadAction('ball', !!gp.buttons[4]?.pressed, ()=>tryBall(P));
+  pressGamepadAction('kick', !!gp.buttons[5]?.pressed, ()=>tryKick(P));
+  pressGamepadAction('meteor', !!gp.buttons[6]?.pressed, ()=>tryMeteor(P));
+  pressGamepadAction('tornado', !!gp.buttons[8]?.pressed, ()=>tryTornado(P));
+  pressGamepadAction('grapple', !!gp.buttons[9]?.pressed, ()=>tryGrapple(P));
 }
  
 /* ---------------- COMBAT ---------------- */
@@ -1838,6 +1875,7 @@ function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(0.05, clock.getDelta());
   const t=clock.elapsedTime;
+  updateGamepadInput();
  
   spectatorCrowd.forEach((s,i)=>{
     const wave=(mode==='battle'||mode==='over')?0.08:0.025;
@@ -1928,20 +1966,20 @@ function loop(){
     raycaster.setFromCamera({x:(mouse.x/innerWidth)*2-1, y:-(mouse.y/innerHeight)*2+1}, camera);
     raycaster.ray.intersectPlane(groundPlane, aimPoint);
     if(aimPoint.length()>500) aimPoint.set(0,0,0);
-    if(touchMove.using && E && !E.dead) aimPoint.copy(E.pos);
+    if((touchMove.using||gamepadInput.using) && E && !E.dead) aimPoint.copy(E.pos);
  
     if(!P.dead && mode==='battle' && !P.special){
       P.yaw=Math.atan2(aimPoint.x-P.pos.x, aimPoint.z-P.pos.z);
       const mv=new THREE.Vector3();
       if(keys['KeyW']||keys['ArrowUp'])mv.z-=1; if(keys['KeyS']||keys['ArrowDown'])mv.z+=1;
       if(keys['KeyA']||keys['ArrowLeft'])mv.x-=1; if(keys['KeyD']||keys['ArrowRight'])mv.x+=1;
-      mv.x+=touchMove.x; mv.z+=touchMove.z;
+      mv.x+=touchMove.x+gamepadInput.x; mv.z+=touchMove.z+gamepadInput.z;
       const camYaw=Math.atan2(camera.position.x-P.pos.x, camera.position.z-P.pos.z);
       const f=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
       const s=new THREE.Vector3(-f.z,0,f.x);
       const move=f.clone().multiplyScalar(-mv.z).add(s.multiplyScalar(mv.x));
       applyMove(P, move, dt, 7*P.bot.speedMult);
-      if(mouse.down||touchMove.fire) tryFire(P);
+      if(mouse.down||touchMove.fire||gamepadInput.fire) tryFire(P);
     }
     if(mode==='battle'){ updateAI(dt); updateSpecial(P,dt); updateSpecial(E,dt); }
  
@@ -2059,7 +2097,7 @@ function loop(){
     UI.energyText.textContent=Math.round((1-Math.min(1,P.gunCd/(GUN_CD_BASE[P.bot.cfg.gun]||1)))*100)+'%';
     UI.ultimateText.textContent=Math.min(100,Math.round((playerWins*35+(100-E.hp)*0.65)))+'%';
     UI.armorText.textContent=P.hp<35?'BREAK':P.shieldT>0?'SHIELD':'OK';
-    UI.heatText.textContent=(mouse.down||touchMove.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
+    UI.heatText.textContent=(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
     UI.miniP.style.left=(50+P.pos.x/ARENA*42)+'%'; UI.miniP.style.top=(50+P.pos.z/ARENA*42)+'%';
     UI.miniE.style.left=(50+E.pos.x/ARENA*42)+'%'; UI.miniE.style.top=(50+E.pos.z/ARENA*42)+'%';
   }

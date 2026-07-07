@@ -3,7 +3,7 @@
     --volt:#ffd23f; --plasma:#37d5ff; --danger:#ff5a4e; --ok:#5dff8a;
   }
   *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
-  html,body{width:100%;height:100%;overflow:hidden;background:var(--dark);font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef4}
+  html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--dark);font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef4}
   #c{position:fixed;inset:0;display:block}
   .titleFont{font-weight:900;letter-spacing:2px;text-transform:uppercase}
  
@@ -118,7 +118,7 @@
     background:rgba(8,11,16,.62);border:1px solid rgba(255,255,255,.1);padding:8px 16px;border-radius:12px;font-size:11px;color:#bcd3e6;backdrop-filter:blur(4px);max-width:94vw}
   .key{background:#243244;border:1px solid #3d5470;border-bottom-width:3px;border-radius:6px;padding:1px 6px;font-weight:800;color:#fff;font-size:10px;margin-right:4px}
   #touchControls{display:none;position:absolute;inset:0;pointer-events:none;z-index:4}
-  #touchActions{position:absolute;left:12px;bottom:18px;display:grid;grid-template-columns:repeat(3,46px);gap:7px;pointer-events:auto}
+  #touchActions{position:absolute;left:calc(12px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(3,46px);gap:7px;pointer-events:auto}
   .touchBtn{position:relative;width:46px;height:46px;border:1px solid rgba(157,220,255,.28);border-radius:50%;background:linear-gradient(180deg,rgba(27,36,48,.88),rgba(9,14,20,.9));
     color:#dcefff;font-size:19px;font-weight:900;line-height:1;box-shadow:0 8px 18px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);touch-action:none}
   .touchBtn.primary{color:#171000;border-color:rgba(255,210,63,.55);background:linear-gradient(180deg,#ffe58a,#d99c22)}
@@ -126,7 +126,7 @@
   .touchBtn.ready{border-color:rgba(93,255,138,.72);box-shadow:0 0 12px rgba(93,255,138,.28),0 8px 18px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08)}
   .touchBtn.cooling{opacity:.46;filter:saturate(.55)}
   .touchBtn:active,.touchBtn.active{transform:translateY(1px) scale(.97);filter:brightness(1.2)}
-  #movePad{position:absolute;right:18px;bottom:22px;width:142px;height:142px;border-radius:50%;pointer-events:auto;touch-action:none}
+  #movePad{position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));width:142px;height:142px;border-radius:50%;pointer-events:auto;touch-action:none}
   #movePadRing{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(55,213,255,.14),rgba(6,12,20,.62));
     border:1px solid rgba(157,220,255,.36);box-shadow:0 0 26px rgba(55,213,255,.18),inset 0 0 28px rgba(0,0,0,.6)}
   #movePadRing:before,#movePadRing:after{content:"";position:absolute;background:rgba(157,220,255,.24)}
@@ -174,9 +174,9 @@
   }
   @media(max-width:700px){ #ctrlHint,#combatTelemetry,#miniMap,#replayTag{display:none} .gPanel{max-height:54vh} .coolSlot{width:46px;height:46px;font-size:17px} }
   @media(max-width:520px){
-    #touchActions{grid-template-columns:repeat(3,42px);gap:6px;left:9px;bottom:12px}
+    #touchActions{grid-template-columns:repeat(3,42px);gap:6px;left:calc(9px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
     .touchBtn{width:42px;height:42px;font-size:17px}
-    #movePad{right:12px;bottom:15px;width:126px;height:126px}
+    #movePad{right:calc(12px + env(safe-area-inset-right));bottom:calc(15px + env(safe-area-inset-bottom));width:126px;height:126px}
     #moveKnob{width:48px;height:48px;margin:-24px 0 0 -24px}
     #cool{display:none}
   }
