@@ -651,23 +651,43 @@ function buildRobot(cfg){
     fin.rotation.y=-0.12*side;
     return fin;
   }
-  function makeLabelTexture(title, sub='07'){
-    const cv=document.createElement('canvas'); cv.width=256; cv.height=128;
+  function makeLabelTexture(title, sub='07', custom=false){
+    const cv=document.createElement('canvas'); cv.width=512; cv.height=256;
     const g=cv.getContext('2d');
-    g.clearRect(0,0,256,128);
-    g.fillStyle='rgba(5,8,12,0.78)'; g.fillRect(10,14,236,100);
-    g.strokeStyle='rgba(255,177,59,0.72)'; g.lineWidth=5; g.strokeRect(15,19,226,90);
-    g.fillStyle='rgba(55,213,255,0.38)'; g.fillRect(20,25,216,8);
+    g.clearRect(0,0,512,256);
+    const glow=new THREE.Color(cfg.glow);
+    const glowCss=`rgb(${Math.round(glow.r*255)},${Math.round(glow.g*255)},${Math.round(glow.b*255)})`;
+    const grad=g.createLinearGradient(0,0,512,256);
+    grad.addColorStop(0,'rgba(7,10,15,0.94)');
+    grad.addColorStop(0.5,'rgba(15,22,31,0.92)');
+    grad.addColorStop(1,'rgba(4,7,11,0.94)');
+    g.fillStyle=grad; g.fillRect(18,28,476,200);
+    g.shadowColor=custom?glowCss:'rgba(255,177,59,0.85)';
+    g.shadowBlur=custom?22:10;
+    g.strokeStyle=custom?glowCss:'rgba(255,177,59,0.85)';
+    g.lineWidth=10; g.strokeRect(28,38,456,180);
+    g.shadowBlur=0;
+    g.fillStyle=custom?'rgba(255,255,255,0.95)':'rgba(55,213,255,0.5)';
+    g.fillRect(42,54,428,14);
+    g.fillStyle=custom?glowCss:'rgba(255,177,59,0.75)';
+    g.fillRect(42,190,428,10);
     g.textAlign='center';
-    g.font='900 30px Segoe UI, Arial'; g.fillStyle='rgba(235,244,250,0.9)';
-    g.fillText(String(title||'UNIT').slice(0,12),128,58);
-    g.font='900 44px Segoe UI, Arial'; g.fillStyle='rgba(255,255,255,0.95)';
-    g.fillText(String(sub||'07').slice(0,8),128,100);
+    g.shadowColor='rgba(0,0,0,0.85)'; g.shadowBlur=12;
+    g.font='900 64px Segoe UI, Arial'; g.fillStyle='rgba(246,251,255,0.98)';
+    g.fillText(String(title||'UNIT').slice(0,12),256,118);
+    g.font='900 74px Segoe UI, Arial'; g.fillStyle=custom?'rgba(255,255,255,0.98)':'rgba(255,255,255,0.95)';
+    g.fillText(String(sub||'07').slice(0,8),256,184);
+    if(custom){
+      g.shadowBlur=8;
+      g.font='900 24px Segoe UI, Arial';
+      g.fillStyle=glowCss;
+      g.fillText('CUSTOM ID',256,224);
+    }
     const t=new THREE.CanvasTexture(cv); t.anisotropy=renderer.capabilities.getMaxAnisotropy(); return t;
   }
-  function decal(parent,title,sub,x,y,z,w=0.46,h=0.24,rotY=0){
+  function decal(parent,title,sub,x,y,z,w=0.46,h=0.24,rotY=0,custom=false){
     const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
-      new THREE.MeshBasicMaterial({map:makeLabelTexture(title,sub), transparent:true, opacity:0.86, depthWrite:false}));
+      new THREE.MeshBasicMaterial({map:makeLabelTexture(title,sub,custom), transparent:true, opacity:custom?1:0.86, depthWrite:false}));
     m.position.set(x,y,z); m.rotation.y=rotY; parent.add(m); return m;
   }
   function armorShard(parent,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0,mat=armorMat){
@@ -692,7 +712,15 @@ function buildRobot(cfg){
   function nameDecal(parent,x,y,z,w,h,rotY=0){
     if((cfg.nameDecal||'shoulder')==='off') return null;
     const [title,sub]=nameParts();
-    return decal(parent,title,sub,x,y,z,w,h,rotY);
+    const sign=decal(parent,title,sub,x,y,z,w,h,rotY,true);
+    sign.renderOrder=12;
+    const glowPanel=new THREE.Mesh(new THREE.PlaneGeometry(w*1.08,h*1.16),
+      new THREE.MeshBasicMaterial({color:cfg.glow, transparent:true, opacity:0.18, depthWrite:false, blending:THREE.AdditiveBlending}));
+    glowPanel.position.set(x,y,z-0.003);
+    glowPanel.rotation.y=rotY;
+    glowPanel.renderOrder=11;
+    parent.add(glowPanel);
+    return sign;
   }
   function piston(parent, x1,y1,z1, x2,y2,z2){
     const a=new THREE.Vector3(x1,y1,z1), b=new THREE.Vector3(x2,y2,z2);
@@ -722,7 +750,7 @@ function buildRobot(cfg){
   plate(torso,0.47*fw,0.2,0.66,0.32,0.78,0.08,armorMat).rotation.z=-0.12;
   decal(torso,'TITAN','07',0.48*fw,0.45,0.735,0.54,0.28,0);
   decal(torso,'UNIT','01',-0.5*fw,0.4,0.735,0.4,0.2,0);
-  if((cfg.nameDecal||'shoulder')==='chest') nameDecal(torso,0,-0.52,0.815,0.92,0.32,0);
+  if((cfg.nameDecal||'shoulder')==='chest') nameDecal(torso,0,-0.5,0.84,1.2,0.42,0);
   addBoltRow(torso,0.76,0.82,1.65*fw,7);
   addBoltRow(torso,-0.98,0.78,1.55*fw,7);
   [
@@ -890,7 +918,7 @@ function buildRobot(cfg){
     const joint=M(new THREE.SphereGeometry(0.22,14,10), chromeMat, -0.22*side,-0.22,0, g);
     joint.scale.set(1,0.78,1);
     plate(g,0.46*side,-0.02,-0.1,0.22,0.44,0.72,darkMat);
-    if((cfg.nameDecal||'shoulder')==='shoulder') nameDecal(g,0,0.2,0.58,0.52,0.22,0);
+    if((cfg.nameDecal||'shoulder')==='shoulder') nameDecal(g,0,0.22,0.6,0.72,0.32,0);
     addBoltRow(g,0.46,0.52,0.58,4);
     edgeGlow(g,0,-0.2,0.46,0.42,0.045,0.05);
     return g;
@@ -918,7 +946,7 @@ function buildRobot(cfg){
     M(new THREE.BoxGeometry(0.48,0.62,0.46), darkMat, 0,-0.62,0, fore);
     armorShard(fore,0,-0.52,0.28,0.44,0.28,0.08,0,0,0.08*side,armorMat);
     armorShard(fore,0,-0.84,0.24,0.36,0.22,0.08,0,0,-0.1*side,chromeMat);
-    if((cfg.nameDecal||'shoulder')==='forearm') nameDecal(fore,0,-0.58,0.335,0.36,0.2,0);
+    if((cfg.nameDecal||'shoulder')==='forearm') nameDecal(fore,0,-0.58,0.36,0.48,0.26,0);
     else decal(fore,'','07',0,-0.58,0.335,0.28,0.18,0);
     addBoltRow(fore,-0.28,0.33,0.32,3);
     const fist=M(new THREE.BoxGeometry(0.38,0.34,0.38), darkMat, 0,-1.02,0.02, fore);
@@ -1012,7 +1040,7 @@ function buildRobot(cfg){
         const foot=M(new THREE.BoxGeometry(0.34,0.16,0.66), darkMat, 0,-0.66,0.05, shin);
         plate(shin,0,-0.56,0.08,0.42,0.08,0.38,armorMat);
         edgeGlow(shin,0,-0.62,0.38,0.22,0.04,0.08);
-        if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.54,0.43,0.34,0.18,0);
+        if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.54,0.45,0.5,0.26,0);
         plate(shin,0,-0.72,0.12,0.66,0.1,0.82,darkMat);
         wheel(shin,0.27*side,-0.67,-0.2,0.16,0.1);
         M(new THREE.ConeGeometry(0.07,0.24,6), chromeMat, -0.1,-0.66,0.42, shin).rotation.x=Math.PI/2;
@@ -1031,7 +1059,7 @@ function buildRobot(cfg){
       plate(shin,0,-0.3,-0.18,0.18,0.38,0.08,chromeMat);
       M(new THREE.BoxGeometry(0.58,0.34,0.82), darkMat, 0,-0.62,0.12, shin);
       armorShard(shin,0,-0.56,0.56,0.48,0.3,0.08,0,0,0.1*side,armorMat);
-      if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.55,0.63,0.36,0.2,0);
+      if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.55,0.65,0.52,0.28,0);
       else decal(shin,'','07',0,-0.55,0.63,0.26,0.16,0);
       M(new THREE.BoxGeometry(0.46,0.1,0.2), glowMat, 0,-0.66,0.46, shin);
       addBoltRow(shin,-0.36,0.64,0.38,3);
@@ -1292,13 +1320,39 @@ function fillSwatches(rowId, colors, key, defIdx){
   colors.forEach((c,i)=>{
     const b=document.createElement('div'); b.className='sw'+(i===defIdx?' sel':''); b.style.background=c;
     b.onclick=()=>{ row.querySelectorAll('.sw').forEach(s=>s.classList.remove('sel')); b.classList.add('sel');
-      playerCfg[key]=c; renderPowers(UI.shopPowers, playerCfg); renderPowers(UI.garagePowers, playerCfg); rebuildPreview(); };
+      playerCfg[key]=c; syncColorInputs(); renderPowers(UI.shopPowers, playerCfg); renderPowers(UI.garagePowers, playerCfg); rebuildPreview(); };
     row.appendChild(b);
   });
 }
 fillSwatches('armorRow', ARMOR_COLORS, 'armor', 1);
 fillSwatches('accentRow', ACCENT_COLORS, 'accent', 0);
 fillSwatches('glowRow', GLOW_COLORS, 'glow', 0);
+function normalizeColor(value, fallback){
+  const c=String(value||'').trim();
+  return /^#[0-9a-f]{6}$/i.test(c)?c.toLowerCase():fallback;
+}
+function syncColorInputs(){
+  const armor=document.getElementById('armorCustom');
+  const accent=document.getElementById('accentCustom');
+  const glow=document.getElementById('glowCustom');
+  if(armor) armor.value=normalizeColor(playerCfg.armor, '#070a0f');
+  if(accent) accent.value=normalizeColor(playerCfg.accent, '#b96b24');
+  if(glow) glow.value=normalizeColor(playerCfg.glow, '#ffb13b');
+}
+function bindCustomColor(inputId, rowId, key){
+  const input=document.getElementById(inputId);
+  if(!input) return;
+  input.addEventListener('input', e=>{
+    playerCfg[key]=normalizeColor(e.target.value, playerCfg[key]);
+    document.getElementById(rowId).querySelectorAll('.sw').forEach(s=>s.classList.remove('sel'));
+    renderPowers(UI.shopPowers, playerCfg);
+    renderPowers(UI.garagePowers, playerCfg);
+    rebuildPreview();
+  });
+}
+bindCustomColor('armorCustom', 'armorRow', 'armor');
+bindCustomColor('accentCustom', 'accentRow', 'accent');
+bindCustomColor('glowCustom', 'glowRow', 'glow');
 [['frameRow','frame'],['headRow','head'],['shRow','shoulder'],['backRow','back'],['legRow','legs'],['gunRow','gun'],['bladeRow','blade'],['arenaRow','arena'],['nameDecalRow','nameDecal']]
 .forEach(([id,key])=>{
   document.getElementById(id).querySelectorAll('.opt').forEach(b=>{
@@ -1342,6 +1396,7 @@ function applyCfg(next){
   Object.assign(playerCfg, next);
   document.getElementById('botName').value=playerCfg.name||'OMEGACLANK';
   syncSwatch('armorRow',ARMOR_COLORS,playerCfg.armor); syncSwatch('accentRow',ACCENT_COLORS,playerCfg.accent); syncSwatch('glowRow',GLOW_COLORS,playerCfg.glow);
+  syncColorInputs();
   syncOpt('frameRow',playerCfg.frame); syncOpt('headRow',playerCfg.head); syncOpt('shRow',playerCfg.shoulder);
   syncOpt('backRow',playerCfg.back); syncOpt('legRow',playerCfg.legs); syncOpt('gunRow',playerCfg.gun); syncOpt('bladeRow',playerCfg.blade);
   syncOpt('arenaRow',playerCfg.arena||'steel');
@@ -1380,6 +1435,7 @@ function randomizeBot(){
   playerCfg.nameDecal=pick(NAME_DECALS);
   playerCfg.name='MEGABOT-'+Math.floor(100+Math.random()*900);
   syncSwatch('armorRow',ARMOR_COLORS,playerCfg.armor); syncSwatch('accentRow',ACCENT_COLORS,playerCfg.accent); syncSwatch('glowRow',GLOW_COLORS,playerCfg.glow);
+  syncColorInputs();
   syncOpt('frameRow',playerCfg.frame); syncOpt('headRow',playerCfg.head); syncOpt('shRow',playerCfg.shoulder);
   syncOpt('backRow',playerCfg.back); syncOpt('legRow',playerCfg.legs); syncOpt('gunRow',playerCfg.gun); syncOpt('bladeRow',playerCfg.blade);
   syncOpt('arenaRow',playerCfg.arena); syncOpt('nameDecalRow',playerCfg.nameDecal); applyArenaTheme(playerCfg.arena);
