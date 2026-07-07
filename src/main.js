@@ -153,9 +153,29 @@ const weatherFX = {rain:null, lightning:[]};
   const gloss = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2-2, ARENA*2-2),
     new THREE.MeshBasicMaterial({color:0x7fb8ff, transparent:true, opacity:0.035, blending:THREE.AdditiveBlending, depthWrite:false}));
   gloss.rotation.x=-Math.PI/2; gloss.position.y=0.045; scene.add(gloss);
+
+  const courtMat=new THREE.MeshPhysicalMaterial({color:0xb9783f, metalness:0.18, roughness:0.32, clearcoat:0.7, clearcoatRoughness:0.18, envMap:studioEnvMap, envMapIntensity:0.7});
+  const court=new THREE.Mesh(new THREE.PlaneGeometry(52,30), courtMat);
+  court.rotation.x=-Math.PI/2; court.position.y=0.052; court.receiveShadow=true; scene.add(court);
+  const lineMat=new THREE.MeshBasicMaterial({color:0xf6f2e8, transparent:true, opacity:0.86, side:THREE.DoubleSide});
+  function courtLine(x,z,w,d,rot=0){
+    const l=new THREE.Mesh(new THREE.PlaneGeometry(w,d), lineMat);
+    l.position.set(x,0.082,z); l.rotation.x=-Math.PI/2; l.rotation.z=rot; scene.add(l); return l;
+  }
+  courtLine(0,-15,52,0.16); courtLine(0,15,52,0.16); courtLine(-26,0,0.16,30); courtLine(26,0,0.16,30);
+  courtLine(0,0,0.16,30); 
+  const centerCircle=new THREE.Mesh(new THREE.RingGeometry(4.1,4.28,64), lineMat); centerCircle.rotation.x=-Math.PI/2; centerCircle.position.y=0.086; scene.add(centerCircle);
+  [-1,1].forEach(s=>{
+    courtLine(19*s,0,0.16,12);
+    courtLine(22*s,-6,6,0.16); courtLine(22*s,6,6,0.16);
+    const keyArc=new THREE.Mesh(new THREE.RingGeometry(5.8,5.98,48,1,-Math.PI/2,Math.PI), lineMat);
+    keyArc.rotation.x=-Math.PI/2; keyArc.rotation.z=s>0?0:Math.PI; keyArc.position.set(19*s,0.088,0); scene.add(keyArc);
+    const three=new THREE.Mesh(new THREE.RingGeometry(12.4,12.58,72,1,-1.05,2.1), lineMat);
+    three.rotation.x=-Math.PI/2; three.rotation.z=s>0?Math.PI/2:-Math.PI/2; three.position.set(22.5*s,0.089,0); scene.add(three);
+  });
  
   const ring = new THREE.Mesh(new THREE.RingGeometry(ARENA-0.4, ARENA, 72),
-    new THREE.MeshBasicMaterial({color:0xffd23f, transparent:true, opacity:0.65, side:THREE.DoubleSide}));
+    new THREE.MeshBasicMaterial({color:0xf6f2e8, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=0.02; scene.add(ring);
   for(let i=0;i<12;i++){
     const a=i/12*Math.PI*2;
@@ -184,7 +204,7 @@ const weatherFX = {rain:null, lightning:[]};
     truss.rotation.y=-a+Math.PI/2;
     truss.castShadow=true; scene.add(truss);
   }
-  const panelTexts=['TITAN 07','MEGA ROBOT','POWER CORE','ARENA LIVE'];
+  const panelTexts=['RR GAMES','HOME 00','AWAY 00','SHOT CLOCK'];
   for(let i=0;i<8;i++){
     const cv=document.createElement('canvas'); cv.width=512; cv.height=160;
     const cx=cv.getContext('2d');
@@ -232,12 +252,12 @@ const weatherFX = {rain:null, lightning:[]};
     for(let r=0;r<4;r++){
       const deck=new THREE.Mesh(new THREE.BoxGeometry(s.d==='x'?s.w:5,0.45,s.d==='x'?5:s.w), standMat);
       deck.position.set(s.x,0.65+r*0.45,s.z);
-      if(s.d==='x') deck.position.z+=Math.sign(s.z)*r*2.2; else deck.position.x+=Math.sign(s.x)*r*2.2;
+      if(s.d==='x') deck.position.z+=Math.sign(s.z)*(r*1.62-2.4); else deck.position.x+=Math.sign(s.x)*(r*1.62-2.4);
       deck.castShadow=true; deck.receiveShadow=true; scene.add(deck);
       const rail=new THREE.Mesh(new THREE.BoxGeometry(s.d==='x'?s.w:0.22,0.18,s.d==='x'?0.22:s.w), railMat);
       rail.position.copy(deck.position);
       rail.position.y+=0.45;
-      if(s.d==='x') rail.position.z-=Math.sign(s.z)*2.15; else rail.position.x-=Math.sign(s.x)*2.15;
+      if(s.d==='x') rail.position.z-=Math.sign(s.z)*1.55; else rail.position.x-=Math.sign(s.x)*1.55;
       scene.add(rail);
       for(let c=0;c<16;c++){
         const off=-s.w/2+3+c*(s.w-6)/15;
@@ -310,6 +330,21 @@ const weatherFX = {rain:null, lightning:[]};
   }
   addCrowdField('x',-1); addCrowdField('x',1); addCrowdField('z',-1); addCrowdField('z',1);
 
+  function addHoop(side){
+    const g=new THREE.Group();
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,5.8,10), railMat); post.position.set(0,2.9,-1.4); g.add(post);
+    const arm=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,2.2), railMat); arm.position.set(0,5.4,-0.36); g.add(arm);
+    const board=new THREE.Mesh(new THREE.BoxGeometry(5.2,3,0.18), glassMat); board.position.set(0,5.6,0.75); g.add(board);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.7,0.055,10,32), new THREE.MeshBasicMaterial({color:0xff6b1a})); rim.position.set(0,4.72,1.52); rim.rotation.x=Math.PI/2; g.add(rim);
+    for(let i=0;i<10;i++){
+      const a=i/10*Math.PI*2;
+      const net=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.0,4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.48}));
+      net.position.set(Math.cos(a)*0.58,4.28,1.52+Math.sin(a)*0.58); net.rotation.x=0.35*Math.sin(a); g.add(net);
+    }
+    g.position.set(0,0,side*31.6); g.rotation.y=side<0?0:Math.PI; scene.add(g);
+  }
+  addHoop(-1); addHoop(1);
+
   function screenCanvas(title, sub){
     const cv=document.createElement('canvas'); cv.width=1024; cv.height=512;
     const cx=cv.getContext('2d');
@@ -324,10 +359,10 @@ const weatherFX = {rain:null, lightning:[]};
     return new THREE.CanvasTexture(cv);
   }
   [
-    [0,-ARENA-19,0,'TITAN 07','LIVE IMPACT FEED'],
-    [0,ARENA+19,Math.PI,'TITAN 07','COLOSSUS BATTLE'],
-    [-ARENA-19,0,Math.PI/2,'CROWD VIEW','MEGA ROBOT ARENA'],
-    [ARENA+19,0,-Math.PI/2,'POWER CORE','TRANSFORM WARNING']
+    [0,-ARENA-19,0,'RR HOME','00  -  00'],
+    [0,ARENA+19,Math.PI,'RR AWAY','PERIOD 1'],
+    [-ARENA-19,0,Math.PI/2,'SECTION A','ROBOT COURTSIDE'],
+    [ARENA+19,0,-Math.PI/2,'SHOT CLOCK','24']
   ].forEach((s,i)=>{
     const frame=new THREE.Mesh(new THREE.BoxGeometry(16.5,8.5,0.5), trussMat);
     frame.position.set(s[0],13.8,s[1]); frame.rotation.y=s[2]; scene.add(frame);
@@ -376,10 +411,10 @@ const weatherFX = {rain:null, lightning:[]};
     const mark=new THREE.Mesh(new THREE.PlaneGeometry(7,1.75), new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0.62, side:THREE.DoubleSide}));
     mark.position.set(x,0.105,z); mark.rotation.x=-Math.PI/2; mark.rotation.z=rot; scene.add(mark);
   }
-  addFloorText('DANGER ZONE',0,-24,0);
-  addFloorText('IMPACT LANE',0,24,Math.PI);
-  addFloorText('SERVICE BAY',-24,0,Math.PI/2);
-  addFloorText('MEDIA RAIL',24,0,-Math.PI/2);
+  addFloorText('HOME END',0,-24,0);
+  addFloorText('AWAY END',0,24,Math.PI);
+  addFloorText('COURTSIDE',-24,0,Math.PI/2);
+  addFloorText('MEDIA ROW',24,0,-Math.PI/2);
   const cableMat=new THREE.MeshStandardMaterial({color:0x05070a, metalness:0.35, roughness:0.65});
   for(let i=0;i<8;i++){
     const a=i/8*Math.PI*2;
