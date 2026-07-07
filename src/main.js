@@ -627,6 +627,8 @@ function buildRobot(cfg){
   const chromeMat=new THREE.MeshPhysicalMaterial({color:0xe7edf3, roughnessMap:sharedRoughnessMap, metalness:1.0, roughness:0.12, clearcoat:0.8, clearcoatRoughness:0.06, envMap:studioEnvMap, envMapIntensity:1.7});
   const pistonMat=new THREE.MeshPhysicalMaterial({color:0x9ca8b4, metalness:1.0, roughness:0.18, clearcoat:0.4, envMap:studioEnvMap, envMapIntensity:1.35});
   const blackGlassMat=new THREE.MeshPhysicalMaterial({color:0x071018, metalness:0.35, roughness:0.08, transmission:0.15, transparent:true, opacity:0.88, clearcoat:1, envMap:studioEnvMap, envMapIntensity:1.6});
+  const heroTrimMat=new THREE.MeshPhysicalMaterial({color:cfg.accent, roughnessMap:sharedRoughnessMap, metalness:0.96, roughness:0.16, clearcoat:0.72, clearcoatRoughness:0.08, envMap:studioEnvMap, envMapIntensity:1.75});
+  const neonLineMat=new THREE.MeshBasicMaterial({color:cfg.glow, transparent:true, opacity:0.92, blending:THREE.AdditiveBlending});
  
   function M(geo, mat, x,y,z, parent){ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z);
     m.castShadow=true; m.receiveShadow=true; (parent||root).add(m); return m; }
@@ -636,6 +638,12 @@ function buildRobot(cfg){
   }
   function edgeGlow(parent,x,y,z,sx,sy,sz){
     return M(new THREE.BoxGeometry(sx,sy,sz), glowMat, x,y,z, parent);
+  }
+  function neonSlash(parent,x,y,z,sx,sy,sz,rz=0){
+    const n=M(new THREE.BoxGeometry(sx,sy,sz), neonLineMat, x,y,z, parent);
+    n.rotation.z=rz;
+    n.castShadow=false;
+    return n;
   }
   function wheel(parent,x,y,z,r=0.22,w=0.12){
     const tire=M(new THREE.CylinderGeometry(r,r,w,18), darkMat, x,y,z, parent);
@@ -748,6 +756,13 @@ function buildRobot(cfg){
   plate(torso,0,0.32,0.72,0.72*fw,0.26,0.08,blackGlassMat);
   plate(torso,-0.47*fw,0.2,0.66,0.32,0.78,0.08,armorMat).rotation.z=0.12;
   plate(torso,0.47*fw,0.2,0.66,0.32,0.78,0.08,armorMat).rotation.z=-0.12;
+  armorShard(torso,-0.35*fw,0.46,0.83,0.9*fw,0.18,0.1,0,0,0.34,heroTrimMat);
+  armorShard(torso,0.35*fw,0.46,0.83,0.9*fw,0.18,0.1,0,0,-0.34,heroTrimMat);
+  armorShard(torso,-0.28*fw,-0.05,0.84,0.56*fw,0.12,0.09,0,0,-0.22,chromeMat);
+  armorShard(torso,0.28*fw,-0.05,0.84,0.56*fw,0.12,0.09,0,0,0.22,chromeMat);
+  neonSlash(torso,-0.34*fw,0.26,0.89,0.5*fw,0.055,0.045,0.45);
+  neonSlash(torso,0.34*fw,0.26,0.89,0.5*fw,0.055,0.045,-0.45);
+  neonSlash(torso,0,-0.74,0.84,0.85*fw,0.05,0.045,0);
   decal(torso,'TITAN','07',0.48*fw,0.45,0.735,0.54,0.28,0);
   decal(torso,'UNIT','01',-0.5*fw,0.4,0.735,0.4,0.2,0);
   if((cfg.nameDecal||'shoulder')==='chest') nameDecal(torso,0,-0.5,0.84,1.2,0.42,0);
@@ -885,6 +900,11 @@ function buildRobot(cfg){
     M(new THREE.SphereGeometry(0.055,8,8), glowMat, 0.43*s,1.26,-0.12, head);
   });
   plate(head,0,0.05,-0.38,0.5,0.18,0.12,darkMat);
+  armorShard(head,-0.28,0.18,0.42,0.24,0.12,0.14,0,0,0.2,heroTrimMat);
+  armorShard(head,0.28,0.18,0.42,0.24,0.12,0.14,0,0,-0.2,heroTrimMat);
+  neonSlash(head,0,0.18,0.48,0.42,0.045,0.035,0);
+  const crownGlow=M(new THREE.TorusGeometry(0.43,0.018,8,28), neonLineMat, 0,0.82,0.02, head);
+  crownGlow.rotation.x=Math.PI/2;
  
   /* --- SHOULDERS --- */
   const missilePods=[];
@@ -918,6 +938,8 @@ function buildRobot(cfg){
     const joint=M(new THREE.SphereGeometry(0.22,14,10), chromeMat, -0.22*side,-0.22,0, g);
     joint.scale.set(1,0.78,1);
     plate(g,0.46*side,-0.02,-0.1,0.22,0.44,0.72,darkMat);
+    armorShard(g,0.2*side,0.72,0,0.74,0.14,0.94,0,0,-0.14*side,heroTrimMat);
+    neonSlash(g,0,0.55,0.52,0.5,0.045,0.05,0);
     if((cfg.nameDecal||'shoulder')==='shoulder') nameDecal(g,0,0.22,0.6,0.72,0.32,0);
     addBoltRow(g,0.46,0.52,0.58,4);
     edgeGlow(g,0,-0.2,0.46,0.42,0.045,0.05);
@@ -949,8 +971,14 @@ function buildRobot(cfg){
     if((cfg.nameDecal||'shoulder')==='forearm') nameDecal(fore,0,-0.58,0.36,0.48,0.26,0);
     else decal(fore,'','07',0,-0.58,0.335,0.28,0.18,0);
     addBoltRow(fore,-0.28,0.33,0.32,3);
-    const fist=M(new THREE.BoxGeometry(0.38,0.34,0.38), darkMat, 0,-1.02,0.02, fore);
-    [-1,1].forEach(f=>plate(fore,0.09*f,-1.05,0.24,0.08,0.22,0.1,chromeMat));
+    const fist=M(new THREE.BoxGeometry(0.54,0.42,0.5), darkMat, 0,-1.02,0.04, fore);
+    fist.scale.set(1.08,1.05,1.12);
+    plate(fore,0,-0.91,0.16,0.62,0.16,0.42,heroTrimMat);
+    neonSlash(fore,0,-0.82,0.39,0.44,0.045,0.045,0);
+    [-1,1].forEach(f=>{
+      plate(fore,0.14*f,-1.08,0.33,0.12,0.25,0.13,chromeMat);
+      plate(fore,0.14*f,-1.0,-0.22,0.1,0.22,0.1,heroTrimMat);
+    });
     return {root:g, fore};
   }
   const armR=arm(1), armL=arm(-1);
@@ -1039,6 +1067,7 @@ function buildRobot(cfg){
         piston(shin, 0,-0.05,0.05, 0,-0.5,-0.25);
         const foot=M(new THREE.BoxGeometry(0.34,0.16,0.66), darkMat, 0,-0.66,0.05, shin);
         plate(shin,0,-0.56,0.08,0.42,0.08,0.38,armorMat);
+        plate(shin,0,-0.42,0.33,0.46,0.12,0.26,heroTrimMat);
         edgeGlow(shin,0,-0.62,0.38,0.22,0.04,0.08);
         if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.54,0.45,0.5,0.26,0);
         plate(shin,0,-0.72,0.12,0.66,0.1,0.82,darkMat);
@@ -1059,6 +1088,7 @@ function buildRobot(cfg){
       plate(shin,0,-0.3,-0.18,0.18,0.38,0.08,chromeMat);
       M(new THREE.BoxGeometry(0.58,0.34,0.82), darkMat, 0,-0.62,0.12, shin);
       armorShard(shin,0,-0.56,0.56,0.48,0.3,0.08,0,0,0.1*side,armorMat);
+      armorShard(shin,0,-0.42,0.68,0.54,0.16,0.08,0,0,-0.08*side,heroTrimMat);
       if((cfg.nameDecal||'shoulder')==='shin') nameDecal(shin,0,-0.55,0.65,0.52,0.28,0);
       else decal(shin,'','07',0,-0.55,0.63,0.26,0.16,0);
       M(new THREE.BoxGeometry(0.46,0.1,0.2), glowMat, 0,-0.66,0.46, shin);
