@@ -145,6 +145,7 @@
   .coolFill{position:absolute;left:0;bottom:0;width:100%;background:rgba(55,213,255,.28);height:0%}
   .coolSlot.ready{border-color:var(--plasma);box-shadow:0 0 14px rgba(55,213,255,.45)}
   .coolSlot.special.ready{border-color:var(--volt);box-shadow:0 0 16px rgba(255,210,63,.55)}
+  .coolSlot:not(.ready){opacity:.62;filter:saturate(.7)}
   #announce{position:absolute;top:32%;left:50%;transform:translate(-50%,-50%);font-size:clamp(28px,5.5vw,62px);font-weight:900;letter-spacing:5px;
     color:#fff;text-shadow:0 0 26px rgba(55,213,255,.8),0 4px 10px #000;opacity:0;pointer-events:none;text-transform:uppercase;text-align:center}
   #announce.pop{animation:pop 1.1s ease forwards}

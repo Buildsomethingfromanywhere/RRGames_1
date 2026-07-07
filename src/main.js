@@ -1039,9 +1039,45 @@ function buildRobot(cfg){
  
 /* ---------------- PROJECTILES / FX ---------------- */
 const bullets=[], sparks=[], rings=[], scraps=[], missiles=[];
+const ammoPickups=[];
 const boltGeo=new THREE.SphereGeometry(0.14,8,8);
 const scrapGeos=[new THREE.BoxGeometry(0.2,0.2,0.2), new THREE.CylinderGeometry(0.06,0.06,0.25,6), new THREE.TetrahedronGeometry(0.16)];
 let shake=0;
+function makeAmmoPickup(x,z){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0x1d2a35, metalness:0.82, roughness:0.28});
+  const glow=new THREE.MeshStandardMaterial({color:0x37d5ff, emissive:0x37d5ff, emissiveIntensity:1.9, metalness:0.2, roughness:0.2});
+  const box=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.62,0.8), mat); box.position.y=0.38; box.castShadow=true; g.add(box);
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(1.18,0.14,0.92), glow); cap.position.y=0.76; g.add(cap);
+  const icon=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.08,0.94), glow); icon.position.set(0,0.86,0); g.add(icon);
+  const light=new THREE.PointLight(0x37d5ff,0.7,8); light.position.y=1.2; g.add(light);
+  g.position.set(x,0,z); scene.add(g);
+  ammoPickups.push({g,x,z,active:true,respawn:0,baseY:0});
+}
+function refillAmmo(F, pickup){
+  F.ammo=F.ammoMax;
+  pickup.active=false;
+  pickup.respawn=12;
+  pickup.g.visible=false;
+  burstSparks(F.pos.clone().setY(1), 0x37d5ff, 18, 6, 5);
+  if(F.isPlayer) announce('AMMO REFILLED!', true);
+}
+function updateAmmoPickups(dt,t){
+  ammoPickups.forEach(p=>{
+    if(!p.active){
+      p.respawn-=dt;
+      if(p.respawn<=0){ p.active=true; p.g.visible=true; }
+      return;
+    }
+    p.g.position.y=0.08+Math.sin(t*3+p.x)*0.07;
+    p.g.rotation.y+=dt*0.9;
+    [P,E].forEach(F=>{
+      if(F&&!F.dead&&F.ammo<F.ammoMax&&F.pos.distanceTo(p.g.position)<1.9) refillAmmo(F,p);
+    });
+  });
+}
+const AMMO_PICKUP_POINTS=[[-25,0],[25,0],[0,-25],[0,25],[-18,18],[18,-18]];
+AMMO_PICKUP_POINTS.forEach(p=>makeAmmoPickup(p[0],p[1]));
  
 function fireBolt(owner, from, dir, color, dmg=7, scale=1){
   const m=new THREE.Mesh(boltGeo, new THREE.MeshBasicMaterial({color}));
@@ -1167,14 +1203,18 @@ const ROBOT_MARKET=[
 let selectedMarket=ROBOT_MARKET[0];
  
 const GUN_CD_BASE={rifle:0.28, cannon:0.55, gatling:0.11};
+const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90};
+const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1};
 const GUN_DMG={rifle:7, cannon:13, gatling:3.2};
 const SWORD_CD=1.0, DASH_CD=1.6, BALL_CD=6, KICK_CD=5, MET_CD=9, TORNADO_CD=7, SHIELD_CD=8, GRAPPLE_CD=5.5;
 let roundNo=1, playerWins=0, enemyWins=0, matchOver=false;
  
 function fighterState(bot, isPlayer){
+  const ammoMax=GUN_AMMO_MAX[bot.cfg.gun]||24;
   return {bot, hp:100, isPlayer,
     pos:bot.root.position, yaw:0, vel:new THREE.Vector3(), y:0, vy:0,
     gunCd:0, swordCd:0, dashCd:0, ballCd:0, kickCd:0, metCd:0, tornadoCd:0, shieldCd:0, grappleCd:0,
+    ammo:ammoMax, ammoMax, reloadWarnT:0,
     dashT:0, swingT:0, hitT:0, walkPh:0, recoil:0,
     shieldT:0, tornadoHitT:0,
     special:null, spT:0, spDir:new THREE.Vector3(), spTarget:new THREE.Vector3(), spHit:false,
@@ -1354,6 +1394,7 @@ function updateRoundTag(){
 function setupRound(){
   disposeBot(player); disposeBot(enemy);
   clearFx();
+  ammoPickups.forEach(p=>{ p.active=true; p.respawn=0; p.g.visible=true; });
   applyArenaTheme(playerCfg.arena||'steel');
  
   player=buildRobot(playerCfg);
@@ -1494,7 +1535,7 @@ function updateTouchButtons(){
     return;
   }
   const canAct=!P.special;
-  setTouchReady('fire', canAct && P.gunCd<=0);
+  setTouchReady('fire', canAct && P.gunCd<=0 && P.ammo>0);
   setTouchReady('melee', canAct && P.swordCd<=0 && P.swingT<=0);
   setTouchReady('dash', canAct && P.dashCd<=0);
   setTouchReady('ball', canAct && P.ballCd<=0);
@@ -1563,6 +1604,13 @@ function aimDirFor(F){
 function tryFire(F){
   if(F.gunCd>0||F.dead||F.special) return;
   const type=F.bot.cfg.gun;
+  const cost=GUN_AMMO_COST[type]||1;
+  if(F.ammo<cost){
+    if(F.isPlayer && F.reloadWarnT<=0){ announce('AMMO EMPTY - FIND REFILL!', true); F.reloadWarnT=1.2; }
+    if(!F.isPlayer) F.ammo=Math.max(F.ammo, Math.ceil(F.ammoMax*0.35));
+    else return;
+  }
+  F.ammo=Math.max(0,F.ammo-cost);
   F.gunCd = F.isPlayer? GUN_CD_BASE[type] : GUN_CD_BASE[type]*2.2+Math.random()*0.3;
   F.bot.muzzle.getWorldPosition(tmpV);
   const dir=aimDirFor(F);
@@ -1946,9 +1994,10 @@ function updateAI(dt){
 /* ---------------- MOVEMENT ---------------- */
 function applyMove(F, move, dt, speed){
   if(move.lengthSq()>0){ move.normalize(); F.walkPh+=dt*9; }
-  else F.walkPh*=0.9;
+  else F.walkPh*=Math.max(0,1-dt*8);
   const spd=speed*(F.dashT>0?3.4:1);
-  F.vel.lerp(move.multiplyScalar(spd), Math.min(1,dt*8));
+  F.vel.lerp(move.multiplyScalar(spd), Math.min(1,dt*(move.lengthSq()>0?10:5.5)));
+  if(move.lengthSq()===0 && F.vel.lengthSq()<0.01) F.vel.set(0,0,0);
   F.pos.addScaledVector(F.vel, dt);
   const lim=ARENA-1.4;
   F.pos.x=Math.max(-lim,Math.min(lim,F.pos.x));
@@ -2093,6 +2142,7 @@ function loop(){
     s.target.position.x=Math.sin(t*0.35+i)*5;
     s.target.position.z=Math.cos(t*0.28+i)*5;
   });
+  updateAmmoPickups(dt,t);
 
   if(mode==='garage'||mode==='shop'){
     if(previewBot){
@@ -2116,6 +2166,7 @@ function loop(){
       F.ballCd=Math.max(0,F.ballCd-dt); F.kickCd=Math.max(0,F.kickCd-dt); F.metCd=Math.max(0,F.metCd-dt);
       F.tornadoCd=Math.max(0,F.tornadoCd-dt); F.shieldCd=Math.max(0,F.shieldCd-dt); F.grappleCd=Math.max(0,F.grappleCd-dt);
       F.shieldT=Math.max(0,F.shieldT-dt);
+      F.reloadWarnT=Math.max(0,F.reloadWarnT-dt);
     });
  
     const vp=viewportSize();
@@ -2221,7 +2272,7 @@ function loop(){
     const behind=tmpV2.set(Math.sin(camYawIdeal),0,Math.cos(camYawIdeal));
     const camH = 9.4 + (P.special&&P.y>2? P.y*0.55:0);
     const desired=focus.clone().addScaledVector(behind,15).setY(camH);
-    camera.position.lerp(desired, Math.min(1,dt*4));
+    camera.position.lerp(desired, Math.min(1,dt*5.8));
     if(shake>0){ shake=Math.max(0,shake-dt*1.4);
       camera.position.x+=(Math.random()-0.5)*shake;
       camera.position.y+=(Math.random()-0.5)*shake*0.6;
@@ -2230,7 +2281,7 @@ function loop(){
  
     UI.reticle.style.left=mouse.x+'px'; UI.reticle.style.top=mouse.y+'px';
     const gcd=GUN_CD_BASE[P.bot.cfg.gun];
-    UI.cfGun.style.height=(P.gunCd/gcd*100)+'%'; UI.slotGun.classList.toggle('ready',P.gunCd<=0);
+    UI.cfGun.style.height=(P.gunCd/gcd*100)+'%'; UI.slotGun.classList.toggle('ready',P.gunCd<=0&&P.ammo>0);
     UI.cfSword.style.height=(P.swordCd/SWORD_CD*100)+'%'; UI.slotSword.classList.toggle('ready',P.swordCd<=0);
     UI.cfDash.style.height=(P.dashCd/DASH_CD*100)+'%'; UI.slotDash.classList.toggle('ready',P.dashCd<=0);
     UI.cfBall.style.height=(P.ballCd/BALL_CD*100)+'%'; UI.slotBall.classList.toggle('ready',P.ballCd<=0);
@@ -2243,10 +2294,10 @@ function loop(){
     const combo=Math.max(0,Math.min(12,Math.floor((100-E.hp)/9)));
     UI.comboText.textContent=combo+' HIT';
     UI.timerText.textContent=Math.max(0,90-Math.floor((performance.now()/1000)%90));
-    UI.energyText.textContent=Math.round((1-Math.min(1,P.gunCd/(GUN_CD_BASE[P.bot.cfg.gun]||1)))*100)+'%';
+    UI.energyText.textContent=`${P.ammo}/${P.ammoMax}`;
     UI.ultimateText.textContent=Math.min(100,Math.round((playerWins*35+(100-E.hp)*0.65)))+'%';
     UI.armorText.textContent=P.hp<35?'BREAK':P.shieldT>0?'SHIELD':'OK';
-    UI.heatText.textContent=(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
+    UI.heatText.textContent=P.ammo<=0?'EMPTY':(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
     UI.miniP.style.left=(50+P.pos.x/ARENA*42)+'%'; UI.miniP.style.top=(50+P.pos.z/ARENA*42)+'%';
     UI.miniE.style.left=(50+E.pos.x/ARENA*42)+'%'; UI.miniE.style.top=(50+E.pos.z/ARENA*42)+'%';
   }
