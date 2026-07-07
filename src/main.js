@@ -1284,6 +1284,7 @@ const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90};
 const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1};
 const GUN_DMG={rifle:7, cannon:13, gatling:3.2};
 const SWORD_CD=1.0, DASH_CD=1.6, BALL_CD=6, KICK_CD=5, MET_CD=9, TORNADO_CD=7, SHIELD_CD=8, GRAPPLE_CD=5.5;
+const PLAYER_DAMAGE_TAKEN=0.78, ENEMY_DAMAGE_TAKEN=1.1;
 let roundNo=1, playerWins=0, enemyWins=0, matchOver=false;
  
 function fighterState(bot, isPlayer){
@@ -1815,6 +1816,7 @@ function damage(F, amt, hitPos){
     burstSparks(hitPos, F.bot.glowColor.getHex(), 12, 7, 5);
     announce(F.isPlayer?'BLOCKED!':'SHIELD!');
   }
+  amt*=F.isPlayer?PLAYER_DAMAGE_TAKEN:ENEMY_DAMAGE_TAKEN;
   amt*=F.bot.armorMult;
   F.hp-=amt; F.hitT=0.25;
   burstSparks(hitPos, 0xffdd88, 10, 6, 4);
@@ -2065,20 +2067,20 @@ function updateAI(dt){
   const ai=E.ai; ai.t-=dt;
   const dist=E.pos.distanceTo(P.pos);
   if(ai.t<=0){
-    ai.t=0.8+Math.random()*1.2;
+    ai.t=1.15+Math.random()*1.55;
     if(dist>16) ai.state='chase';
-    else if(dist<4.5&&Math.random()<0.6) ai.state='slash';
-    else ai.state=Math.random()<0.55?'strafe':'chase';
+    else if(dist<4.5&&Math.random()<0.42) ai.state='slash';
+    else ai.state=Math.random()<0.48?'strafe':'chase';
     ai.strafeDir=Math.random()<0.5?-1:1;
-    if(Math.random()<0.18&&E.dashCd<=0) tryDash(E);
+    if(Math.random()<0.1&&E.dashCd<=0) tryDash(E);
     // specials
     const roll=Math.random();
-    if(E.hp<45 && roll<0.12 && E.shieldCd<=0) tryShield(E);
-    else if(roll<0.14 && dist>11 && E.ballCd<=0) tryBall(E);
-    else if(roll<0.24 && dist>6 && dist<15 && E.kickCd<=0) tryKick(E);
-    else if(roll<0.31 && E.metCd<=0) tryMeteor(E);
-    else if(roll<0.39 && dist<5.2 && E.tornadoCd<=0) tryTornado(E);
-    else if(roll<0.47 && dist>7 && dist<18 && E.grappleCd<=0) tryGrapple(E);
+    if(E.hp<32 && roll<0.09 && E.shieldCd<=0) tryShield(E);
+    else if(roll<0.1 && dist>11 && E.ballCd<=0) tryBall(E);
+    else if(roll<0.17 && dist>7 && dist<15 && E.kickCd<=0) tryKick(E);
+    else if(roll<0.22 && dist>6 && E.metCd<=0) tryMeteor(E);
+    else if(roll<0.28 && dist<5.2 && E.tornadoCd<=0) tryTornado(E);
+    else if(roll<0.34 && dist>8 && dist<18 && E.grappleCd<=0) tryGrapple(E);
   }
   const targetYaw=Math.atan2(P.pos.x-E.pos.x, P.pos.z-E.pos.z);
   let dy=targetYaw-E.yaw;
@@ -2092,7 +2094,7 @@ function updateAI(dt){
     if(dist>12)move.add(fwd.clone().multiplyScalar(0.5));
     if(dist<6)move.add(fwd.clone().multiplyScalar(-0.6)); }
   if(ai.state==='slash'){ move.add(fwd); if(dist<3.4){ tryMelee(E); ai.state='strafe'; } }
-  applyMove(E, move, dt, 6.2*E.bot.speedMult);
+  applyMove(E, move, dt, 5.45*E.bot.speedMult);
   if(dist>4&&Math.abs(dy)<0.5) tryFire(E);
 }
  
