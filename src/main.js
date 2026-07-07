@@ -991,6 +991,8 @@ let mode='shop';
 const keys={};
 const mouse={x:innerWidth/2, y:innerHeight/2, down:false};
 const touchMove={x:0, z:0, active:false, fire:false, using:false};
+const touchButtons={};
+document.querySelectorAll('.touchBtn').forEach(btn=>{ touchButtons[btn.dataset.action]=btn; });
 const raycaster=new THREE.Raycaster();
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 const aimPoint=new THREE.Vector3();
@@ -1342,6 +1344,28 @@ document.querySelectorAll('.touchBtn').forEach(btn=>{
     if(action==='fire') touchMove.fire=false;
   }));
 });
+function setTouchReady(action, ready){
+  const btn=touchButtons[action];
+  if(!btn) return;
+  btn.classList.toggle('ready', ready);
+  btn.classList.toggle('cooling', !ready);
+}
+function updateTouchButtons(){
+  if(!P||P.dead){
+    Object.keys(touchButtons).forEach(action=>setTouchReady(action, false));
+    return;
+  }
+  const canAct=!P.special;
+  setTouchReady('fire', canAct && P.gunCd<=0);
+  setTouchReady('melee', canAct && P.swordCd<=0 && P.swingT<=0);
+  setTouchReady('dash', canAct && P.dashCd<=0);
+  setTouchReady('ball', canAct && P.ballCd<=0);
+  setTouchReady('kick', canAct && P.kickCd<=0);
+  setTouchReady('meteor', canAct && P.metCd<=0);
+  setTouchReady('tornado', canAct && P.tornadoCd<=0);
+  setTouchReady('shield', P.shieldCd<=0);
+  setTouchReady('grapple', canAct && P.grappleCd<=0);
+}
  
 /* ---------------- COMBAT ---------------- */
 function aimDirFor(F){
@@ -2028,6 +2052,7 @@ function loop(){
     UI.cfTornado.style.height=(P.tornadoCd/TORNADO_CD*100)+'%'; UI.slotTornado.classList.toggle('ready',P.tornadoCd<=0);
     UI.cfShield.style.height=(P.shieldCd/SHIELD_CD*100)+'%'; UI.slotShield.classList.toggle('ready',P.shieldCd<=0);
     UI.cfGrapple.style.height=(P.grappleCd/GRAPPLE_CD*100)+'%'; UI.slotGrapple.classList.toggle('ready',P.grappleCd<=0);
+    updateTouchButtons();
     const combo=Math.max(0,Math.min(12,Math.floor((100-E.hp)/9)));
     UI.comboText.textContent=combo+' HIT';
     UI.timerText.textContent=Math.max(0,90-Math.floor((performance.now()/1000)%90));
