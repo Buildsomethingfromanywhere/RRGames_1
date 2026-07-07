@@ -3,15 +3,17 @@
     --volt:#ffd23f; --plasma:#37d5ff; --danger:#ff5a4e; --ok:#5dff8a;
   }
   *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
-  html,body{width:100%;height:100%;min-height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--dark);font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef4}
+  html{width:100%;height:100%;min-height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--dark);-webkit-text-size-adjust:100%}
+  body{width:100%;height:100%;min-height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--dark);font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef4}
   body{position:fixed;inset:0}
-  #c{position:fixed;inset:0;width:100vw;height:100dvh;display:block}
+  #c{position:fixed;inset:0;width:var(--app-w,100vw);height:var(--app-h,100dvh);display:block}
+  button,input{touch-action:manipulation}
   #fullscreenBtn{position:fixed;right:calc(12px + env(safe-area-inset-right));top:calc(12px + env(safe-area-inset-top));z-index:8;width:42px;height:42px;border-radius:50%;
     border:1px solid rgba(157,220,255,.35);background:rgba(8,13,20,.68);color:#dcefff;font-size:18px;line-height:1;pointer-events:auto}
   .titleFont{font-weight:900;letter-spacing:2px;text-transform:uppercase}
  
   /* ---------- GARAGE ---------- */
-  #garage{position:fixed;inset:0;width:100vw;height:100dvh;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+  #garage{position:fixed;inset:0;width:var(--app-w,100vw);height:var(--app-h,100dvh);pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
   #garage.hidden,#hud.hidden,#endScreen.hidden,#shop.hidden{display:none}
   .gTop{padding:20px 26px;pointer-events:none}
   .gTop h1{font-size:clamp(24px,4.2vw,48px);font-weight:900;letter-spacing:4px;
@@ -34,7 +36,7 @@
     font-weight:700;letter-spacing:.4px;cursor:pointer;text-align:center;transition:all .12s}
   .opt:hover{background:#233043}
   .opt.sel{background:linear-gradient(180deg,#2b4a66,#1d3346);border-color:var(--plasma);color:#fff;box-shadow:0 0 12px rgba(55,213,255,.35)}
-  #botName{width:100%;background:#0e141c;border:1px solid var(--edge);color:#fff;border-radius:9px;padding:9px;font-size:14px;font-weight:700;letter-spacing:1px;user-select:text;-webkit-user-select:text}
+  #botName{width:100%;background:#0e141c;border:1px solid var(--edge);color:#fff;border-radius:9px;padding:9px;font-size:16px;font-weight:700;letter-spacing:1px;user-select:text;-webkit-user-select:text}
   #botName:focus{outline:none;border-color:var(--plasma)}
   .gBottom{pointer-events:auto;display:flex;justify-content:center;padding:0 0 22px}
   #fightBtn{font-size:clamp(17px,2.4vw,24px);font-weight:900;letter-spacing:3px;padding:15px 50px;border:none;border-radius:14px;cursor:pointer;
@@ -48,7 +50,7 @@
   #randomBtn:hover{background:#22303f}
 
   /* ---------- BUY / CONFIGURE ---------- */
-  #shop{position:fixed;inset:0;width:100vw;height:100dvh;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+  #shop{position:fixed;inset:0;width:var(--app-w,100vw);height:var(--app-h,100dvh);pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
   .shopTop{padding:20px 26px;pointer-events:none}
   .shopTop h1{font-size:clamp(24px,4.4vw,52px);font-weight:900;letter-spacing:4px;
     background:linear-gradient(180deg,#fff,#d6e7ef 52%,#6a8492);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -93,7 +95,7 @@
   .arenaChip{min-width:90px}
  
   /* ---------- HUD ---------- */
-  #hud{position:fixed;inset:0;width:100vw;height:100dvh;pointer-events:none}
+  #hud{position:fixed;inset:0;width:var(--app-w,100vw);height:var(--app-h,100dvh);pointer-events:none}
   .hpWrap{position:absolute;top:16px;width:33%;max-width:420px}
   .hpWrap.player{left:18px}.hpWrap.enemy{right:18px;text-align:right}
   .hpName{font-size:13px;font-weight:800;letter-spacing:2px;margin-bottom:5px;text-transform:uppercase;text-shadow:0 2px 6px #000}

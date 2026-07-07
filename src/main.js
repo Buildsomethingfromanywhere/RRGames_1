@@ -11,6 +11,8 @@ function viewportSize(){
 }
 function applyViewportSize(){
   const {w,h}=viewportSize();
+  document.documentElement.style.setProperty('--app-w', `${w}px`);
+  document.documentElement.style.setProperty('--app-h', `${h}px`);
   renderer.setSize(w,h,false);
   camera.aspect=w/h;
   camera.updateProjectionMatrix();
@@ -1180,6 +1182,18 @@ async function enterFullscreen(){
   applyViewportSize();
 }
 fullscreenBtn?.addEventListener('click', enterFullscreen);
+let lastTouchEnd=0;
+document.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
+document.addEventListener('gesturechange', e=>e.preventDefault(), {passive:false});
+document.addEventListener('gestureend', e=>e.preventDefault(), {passive:false});
+document.addEventListener('touchend', e=>{
+  const now=performance.now();
+  if(now-lastTouchEnd<320) e.preventDefault();
+  lastTouchEnd=now;
+}, {passive:false});
+document.addEventListener('wheel', e=>{
+  if(e.ctrlKey) e.preventDefault();
+}, {passive:false});
  
 let mode='shop';
 const keys={};
