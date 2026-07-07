@@ -711,6 +711,47 @@ function buildRobot(cfg){
   function addBoltRow(parent,y,z,w,count=5){
     for(let i=0;i<count;i++) bolt(parent,(-w/2)+(w*i/(count-1)),y,z,0.028,i%2?chromeMat:pistonMat);
   }
+  function isChildOf(obj, parent){
+    let p=obj.parent;
+    while(p){ if(p===parent) return true; p=p.parent; }
+    return false;
+  }
+  function simplifyRobotReadability(){
+    root.traverse(o=>{
+      if(!o.isMesh || isChildOf(o, gun) || isChildOf(o, sword) || isChildOf(o, chestSpinner)) return;
+      if(o.geometry){
+        o.geometry.computeBoundingBox();
+        const s=o.geometry.boundingBox.getSize(tmpV);
+        const max=Math.max(s.x,s.y,s.z), min=Math.min(s.x,s.y,s.z);
+        if(max<0.42 || (min<0.07 && max<0.95)) o.visible=false;
+      }
+    });
+    // Large, readable hero shells sit over the detailed machinery for a premium action-figure silhouette.
+    const chestShell=M(new THREE.BoxGeometry(1.52*fw,1.02,0.16), armorMat, 0,0.12,0.91, torso);
+    chestShell.name='readableChestShell';
+    armorShard(torso,-0.32*fw,0.28,1.02,0.78*fw,0.18,0.12,0,0,0.34,heroTrimMat);
+    armorShard(torso,0.32*fw,0.28,1.02,0.78*fw,0.18,0.12,0,0,-0.34,heroTrimMat);
+    M(new THREE.BoxGeometry(0.95*fw,0.22,0.14), darkMat, 0,-0.55,1.03, torso);
+    const badge=M(new THREE.CylinderGeometry(0.28,0.28,0.08,24), glowMat, 0,0.03,1.12, torso);
+    badge.rotation.x=Math.PI/2;
+    neonSlash(torso,0,0.63,1.12,1.12*fw,0.06,0.05,0);
+    M(new THREE.BoxGeometry(0.92,0.48,0.2), heroTrimMat, 0,0.5,0.48, head);
+    M(new THREE.BoxGeometry(0.72,0.2,0.08), blackGlassMat, 0,0.43,0.6, head);
+    M(new THREE.BoxGeometry(0.56,0.075,0.045), glowMat, 0,0.45,0.66, head);
+    [-1,1].forEach(s=>{
+      const glove=M(new THREE.BoxGeometry(0.66,0.48,0.58), heroTrimMat, 0,-1.03,0.08, s>0?armR.fore:armL.fore);
+      glove.scale.set(1.08,1.02,1.08);
+      M(new THREE.BoxGeometry(0.5,0.08,0.18), glowMat, 0,-0.78,0.42, s>0?armR.fore:armL.fore);
+      if(s>0) glove.name='rightHeroGlove'; else glove.name='leftHeroGlove';
+    });
+    [legL,legR].forEach((leg,idx)=>{
+      if(!leg||!leg.shin) return;
+      const boot=M(new THREE.BoxGeometry(0.72,0.3,0.9), darkMat, 0,-0.78,0.12, leg.shin);
+      boot.name=idx?'rightReadableBoot':'leftReadableBoot';
+      M(new THREE.BoxGeometry(0.58,0.12,0.42), heroTrimMat, 0,-0.57,0.58, leg.shin);
+      neonSlash(leg.shin,0,-0.39,0.71,0.4,0.045,0.04,0);
+    });
+  }
   function nameParts(){
     const raw=String(cfg.name||'MEGABOT').toUpperCase().replace(/[^A-Z0-9 -]/g,'').trim()||'MEGABOT';
     const bits=raw.split(/[\s-]+/).filter(Boolean);
@@ -1123,6 +1164,7 @@ function buildRobot(cfg){
     }
     legL=leg(-1); legR=leg(1);
   }
+  simplifyRobotReadability();
  
   /* --- BALL MODE SHELL (hidden until transform) --- */
   const ball=new THREE.Group(); ball.visible=false; scene.add(ball);
