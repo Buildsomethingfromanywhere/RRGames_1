@@ -26,7 +26,7 @@
   <div class="shopTop">
     <h1 class="titleFont">ROBO RUMBLE ULTIMATE</h1>
     <div class="studioName titleFont">RR Apps and Games</div>
-    <p>BUY A BASE CHASSIS &nbsp;•&nbsp; INSPECT POWERS &nbsp;•&nbsp; THEN CONFIGURE EVERY SYSTEM</p>
+    <p>CHOOSE YOUR FIGHTER &nbsp;•&nbsp; BUILD ITS LOADOUT &nbsp;•&nbsp; ENTER THE LEAGUE</p>
   </div>
   <div id="devStudio">
     <div class="studioBot">
@@ -41,10 +41,8 @@
   <div class="shopPanel">
     <div class="gLabel">Robot Market</div>
     <div id="botMarket"></div>
-    <button id="buyBtn">BUY SELECTED ROBOT</button>
-    <button id="configureBtn">CONFIGURE IN WORKSHOP</button>
     <div class="powerPanel">
-      <h3 class="titleFont">VISIBLE POWER LOADOUT</h3>
+      <h3 class="titleFont">SELECTED LOADOUT</h3>
       <div class="powerList" id="shopPowers"></div>
     </div>
   </div>
@@ -61,6 +59,11 @@
     <div class="gNav">
       <button id="shopBackBtn">ROBOT MARKET</button>
       <button id="fullRandomBtn">FULL RANDOM</button>
+    </div>
+    <div class="workshopIdentity">
+      <span>CONFIGURING</span>
+      <b id="workshopRobotName">TITAN-CLASS HEAVY 07</b>
+      <small id="saveStatus">BUILD SAVED AUTOMATICALLY</small>
     </div>
     <div class="gLabel">Bot Name</div>
     <input id="botName" maxlength="14" value="OMEGACLANK">
@@ -144,6 +147,17 @@
       <button class="opt arenaChip" data-v="lava">LAVA PIT</button>
       <button class="opt arenaChip" data-v="sky">SKY PLATFORM</button>
     </div>
+    <div class="gLabel">Match Rules</div>
+    <div class="optRow" id="difficultyRow">
+      <button class="opt" data-v="rookie">ROOKIE</button>
+      <button class="opt sel" data-v="challenger">CHALLENGER</button>
+      <button class="opt" data-v="champion">CHAMPION</button>
+    </div>
+    <div class="optRow compactRules" id="roundTimeRow">
+      <button class="opt" data-v="60">60 SEC</button>
+      <button class="opt sel" data-v="90">90 SEC</button>
+      <button class="opt" data-v="120">120 SEC</button>
+    </div>
     <button id="randomBtn">🎲 RANDOMIZE MEGA-BOT</button>
     <div class="powerPanel">
       <h3 class="titleFont">CONFIGURED POWERS</h3>
@@ -155,6 +169,7 @@
  
 <!-- HUD -->
 <div id="hud" class="hidden">
+  <button id="pauseBtn" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
   <div class="hpWrap player"><div class="hpName" id="pName">YOU</div><div class="hpBarOuter"><div class="hpBarFill" id="pHp"></div></div></div>
   <div class="hpWrap enemy"><div class="hpName" id="eName">SCRAPJAW</div><div class="hpBarOuter"><div class="hpBarFill" id="eHp"></div></div></div>
   <div id="vsTag" class="titleFont">VS</div>
@@ -214,6 +229,25 @@
   <div id="announce" class="titleFont"></div>
   <div id="reticle"><svg viewBox="0 0 34 34" width="34" height="34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ffd23f" stroke-width="2"/><circle cx="17" cy="17" r="2.5" fill="#ffd23f"/><line x1="17" y1="0" x2="17" y2="8" stroke="#ffd23f" stroke-width="2"/><line x1="17" y1="26" x2="17" y2="34" stroke="#ffd23f" stroke-width="2"/><line x1="0" y1="17" x2="8" y2="17" stroke="#ffd23f" stroke-width="2"/><line x1="26" y1="17" x2="34" y2="17" stroke="#ffd23f" stroke-width="2"/></svg></div>
   <div id="dmgFlash"></div>
+</div>
+
+<div id="pauseScreen" class="hidden">
+  <div class="pausePanel">
+    <span class="menuEyebrow">RR ARENA CONTROL</span>
+    <h2 class="titleFont">Paused</h2>
+    <label class="settingRow"><span>Sound</span><input id="soundToggle" type="checkbox" checked></label>
+    <label class="settingRow"><span>Graphics</span>
+      <select id="qualitySelect">
+        <option value="auto">Auto</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+    </label>
+    <button id="resumeBtn" class="menuPrimary">RESUME FIGHT</button>
+    <button id="restartBtn" class="menuSecondary">RESTART MATCH</button>
+    <button id="quitBtn" class="menuSecondary">ROBOT MARKET</button>
+  </div>
 </div>
  
 <!-- END SCREEN -->

@@ -14,7 +14,7 @@
  
   /* ---------- GARAGE ---------- */
   #garage{position:fixed;inset:0;width:var(--app-w,100vw);height:var(--app-h,100dvh);pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
-  #garage.hidden,#hud.hidden,#endScreen.hidden,#shop.hidden{display:none}
+  #garage.hidden,#hud.hidden,#endScreen.hidden,#shop.hidden,#pauseScreen.hidden{display:none}
   .gTop{padding:20px 26px;pointer-events:none}
   .gTop h1{font-size:clamp(24px,4.2vw,48px);font-weight:900;letter-spacing:4px;
     background:linear-gradient(180deg,#fff,#8fb7cf 55%,#48627a);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -76,18 +76,27 @@
     background:linear-gradient(180deg,rgba(18,24,31,.94),rgba(8,12,17,.96));border:1px solid #314255;border-radius:12px;padding:14px;
     box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05)}
   .shopPanel::-webkit-scrollbar{width:8px}.shopPanel::-webkit-scrollbar-thumb{background:#2c3a4c;border-radius:4px}
-  .botCard{border:1px solid #2b3a4b;background:#121922;border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer;transition:border-color .12s,background .12s,transform .12s}
+  .botCard{min-width:0;overflow:hidden;border:1px solid #2b3a4b;background:#121922;border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer;transition:border-color .12s,background .12s,transform .12s}
   .botCard:hover{border-color:#536b84;background:#172230;transform:translateY(-1px)}
   .botCard.sel{border-color:var(--volt);box-shadow:0 0 18px rgba(255,210,63,.2)}
-  .botCard h3{font-size:15px;letter-spacing:1.4px;margin-bottom:4px}
+  .botCard h3{min-width:0;font-size:15px;letter-spacing:1.4px;margin-bottom:4px;overflow-wrap:anywhere}
   .botCard p{font-size:11px;line-height:1.35;color:#9fb3c4;margin-bottom:8px}
-  .statGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-  .stat{background:#0d131b;border:1px solid #263546;border-radius:6px;padding:6px 5px}
+  .botCardTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .botClass{flex:none;padding:4px 6px;border:1px solid #354b61;border-radius:4px;color:#9fc4dc;font-size:8px;font-weight:900;letter-spacing:1px}
+  .botCardActions{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:9px}
+  .botCardActions button{min-width:0;min-height:32px;border:1px solid #3b5067;border-radius:6px;background:#182331;color:#cfe2f2;font-size:9px;font-weight:900;letter-spacing:.8px;cursor:pointer}
+  .botCardActions .cardInspect{font-size:15px;padding:0}
+  .botCardActions .cardFight{background:#dcae36;border-color:#ffda6e;color:#171100}
+  .botCardActions button:hover{filter:brightness(1.18)}
+  .workshopIdentity{margin:10px 0 4px;padding:10px;background:#0c131c;border-left:3px solid var(--volt)}
+  .workshopIdentity span,.workshopIdentity small{display:block;color:#7890a5;font-size:8px;font-weight:900;letter-spacing:1.4px}
+  .workshopIdentity b{display:block;margin:3px 0;color:#fff;font-size:13px;letter-spacing:.8px}
+  .workshopIdentity small{color:#5dff8a}
+  .compactRules{margin-top:7px}
+  .statGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .stat{min-width:0;background:#0d131b;border:1px solid #263546;border-radius:6px;padding:6px 5px}
   .stat span{display:block;font-size:8px;color:#768ca0;letter-spacing:1px}
   .stat b{display:block;font-size:12px;color:#e8eef4;margin-top:2px}
-  #buyBtn,#configureBtn{width:100%;margin-top:10px;padding:11px;border-radius:10px;border:none;cursor:pointer;font-weight:900;letter-spacing:2px}
-  #buyBtn{background:linear-gradient(180deg,#ffe98a,#e8a11f);color:#1a1200}
-  #configureBtn{background:#1c2a39;color:#cfe4f5;border:1px solid #3c536c}
   .powerPanel{margin-top:12px;border:1px solid #2b3a4b;background:#0f151d;border-radius:8px;padding:10px}
   .powerPanel h3{font-size:12px;letter-spacing:1.6px;margin-bottom:8px;color:#dceaf4}
   .powerList{display:grid;gap:6px}
@@ -110,6 +119,7 @@
   .hpBarFill.low{background:linear-gradient(180deg,#ffd08a,#ff9e2e 55%,#d1731a)!important}
   #vsTag{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:21px;font-weight:900;letter-spacing:3px;color:var(--volt);text-shadow:0 0 16px rgba(255,210,63,.6),0 2px 4px #000}
   #roundTag{position:absolute;top:46px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:900;letter-spacing:2px;color:#bcd3e6;text-shadow:0 2px 4px #000}
+  #pauseBtn{position:absolute;z-index:4;right:18px;top:54px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(7,11,17,.72);color:#fff;font-size:14px;pointer-events:auto;cursor:pointer}
   #combatTelemetry{position:absolute;top:74px;left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(6,68px);gap:6px;
     background:rgba(5,9,14,.56);border:1px solid rgba(157,220,255,.18);padding:7px;border-radius:8px;backdrop-filter:blur(5px)}
   #combatTelemetry div{background:linear-gradient(180deg,rgba(18,30,42,.86),rgba(8,13,20,.9));border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:5px;text-align:center}
@@ -159,6 +169,14 @@
   #reticle{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;opacity:.9}
   #reticle svg{filter:drop-shadow(0 0 5px rgba(255,210,63,.9))}
   #dmgFlash{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 45%,rgba(255,60,40,.45));opacity:0;pointer-events:none;transition:opacity .1s}
+  #pauseScreen{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(3,6,10,.78);backdrop-filter:blur(8px);pointer-events:auto}
+  .pausePanel{width:min(360px,calc(100vw - 32px));padding:22px;background:#111923;border:1px solid #34485e;border-radius:8px;box-shadow:0 24px 80px rgba(0,0,0,.7)}
+  .menuEyebrow{color:#ffd23f;font-size:9px;font-weight:900;letter-spacing:2px}
+  .pausePanel h2{margin:5px 0 18px;font-size:30px}
+  .settingRow{display:flex;align-items:center;justify-content:space-between;margin:9px 0;padding:10px;background:#0c131b;border:1px solid #27384a;color:#bcd0e0;font-size:12px;font-weight:800}
+  .settingRow select{background:#192534;border:1px solid #3c536c;color:#fff;padding:6px}
+  .menuPrimary,.menuSecondary{width:100%;margin-top:8px;padding:11px;border-radius:6px;font-weight:900;letter-spacing:1.4px;cursor:pointer}
+  .menuPrimary{border:0;background:#ffd23f;color:#171100}.menuSecondary{border:1px solid #3c536c;background:#192534;color:#d9e8f3}
   body::after{content:"";position:fixed;inset:0;pointer-events:none;background:
     radial-gradient(ellipse at center,transparent 48%,rgba(0,0,0,.34) 100%),
     linear-gradient(180deg,rgba(255,255,255,.035),transparent 18%,transparent 82%,rgba(0,0,0,.18));
@@ -186,8 +204,10 @@
     #ctrlHint,#combatTelemetry,#miniMap,#replayTag{display:none}
     .shopTop{padding:18px 20px}
     .shopTop h1{font-size:18px;letter-spacing:2px;white-space:nowrap}
-    .shopTop p{max-width:82vw;font-size:10px;line-height:1.35}
-    .shopPanel{align-self:stretch;width:auto;margin:0 12px 12px;max-height:58vh;padding:12px}
+    .shopTop p{max-width:76vw;font-size:10px;line-height:1.35}
+    .shopPanel{position:absolute;left:12px;right:auto;bottom:12px;align-self:auto;width:calc(100vw - 24px);max-width:none;margin:0;max-height:58vh;padding:12px}
+    .botCard{padding:11px}
+    .botCardActions button{letter-spacing:.4px}
     .gPanel{max-height:54vh}
     .coolSlot{width:46px;height:46px;font-size:17px}
   }

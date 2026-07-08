@@ -1216,7 +1216,10 @@ function refillAmmo(F, pickup){
   pickup.respawn=10;
   pickup.g.visible=false;
   burstSparks(F.pos.clone().setY(1), 0x37d5ff, 18, 6, 5);
-  if(F.isPlayer) announce(toReserve>0?'RESERVE AMMO LOADED!':'MAGAZINE TOPPED!', true);
+  if(F.isPlayer){
+    gameSound('pickup');
+    announce(toReserve>0?'RESERVE AMMO LOADED!':'MAGAZINE TOPPED!', true);
+  }
 }
 function updateAmmoPickups(dt,t){
   ammoPickups.forEach(p=>{
@@ -1241,7 +1244,7 @@ function fireBolt(owner, from, dir, color, dmg=7, scale=1){
   m.lookAt(from.clone().add(dir));
   m.add(new THREE.PointLight(color, 1.2, 6));
   scene.add(m);
-  bullets.push({mesh:m, vel:dir.clone().multiplyScalar(38), owner, life:2.2, dmg});
+  bullets.push({mesh:m, vel:dir.clone().multiplyScalar(38), owner, life:2.2, dmg:dmg*(owner.rangedMult||1)});
 }
 function fireMissile(owner, from, target, color, dmg=6, speed=14){
   const g=new THREE.Group();
@@ -1250,7 +1253,7 @@ function fireMissile(owner, from, target, color, dmg=6, speed=14){
   const tip=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.16,8), new THREE.MeshBasicMaterial({color}));
   tip.rotation.x=Math.PI/2; tip.position.z=0.28; g.add(tip);
   g.position.copy(from); scene.add(g);
-  missiles.push({mesh:g, target, owner, life:3.4, speed, dmg, vel:new THREE.Vector3(0,5,0)});
+  missiles.push({mesh:g, target, owner, life:3.4, speed, dmg:dmg*(owner.rangedMult||1), vel:new THREE.Vector3(0,5,0)});
 }
 function burstSparks(pos, color, count=16, speed=7, up=4){
   for(let i=0;i<count;i++){
@@ -1261,6 +1264,7 @@ function burstSparks(pos, color, count=16, speed=7, up=4){
   }
 }
 function explosion(pos, color, big=false){
+  if(big) gameSound('boom',1.15);
   burstSparks(pos, color, big?46:22, big?13:9, big?9:6);
   const ball=new THREE.Mesh(new THREE.SphereGeometry(big?0.9:0.5,14,12),
     new THREE.MeshBasicMaterial({color:0xffaa44, transparent:true, opacity:0.95}));
@@ -1301,6 +1305,47 @@ async function enterFullscreen(){
   applyViewportSize();
 }
 fullscreenBtn?.addEventListener('click', enterFullscreen);
+let audioCtx=null;
+function ensureAudio(){
+  if(!saveData.sound) return null;
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+function gameSound(type, strength=1){
+  const ctx=ensureAudio();
+  if(!ctx) return;
+  const now=ctx.currentTime;
+  const osc=ctx.createOscillator();
+  const gain=ctx.createGain();
+  const filter=ctx.createBiquadFilter();
+  const table={
+    shot:[150,72,'square',0.09], hit:[88,34,'sawtooth',0.13],
+    rocket:[110,42,'sawtooth',0.24], blade:[520,150,'triangle',0.16],
+    block:[760,300,'sine',0.13], boom:[72,24,'sawtooth',0.34],
+    pickup:[420,880,'sine',0.16], ui:[300,450,'sine',0.06]
+  }[type]||[180,90,'square',0.08];
+  osc.type=table[2];
+  osc.frequency.setValueAtTime(table[0],now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(20,table[1]),now+table[3]);
+  filter.type='lowpass';
+  filter.frequency.value=type==='boom'?260:1800;
+  gain.gain.setValueAtTime(Math.min(0.16,0.055*strength),now);
+  gain.gain.exponentialRampToValueAtTime(0.001,now+table[3]);
+  osc.connect(filter).connect(gain).connect(ctx.destination);
+  osc.start(now); osc.stop(now+table[3]);
+}
+function applyQuality(value=saveData.quality){
+  saveData.quality=value;
+  const mobile=matchMedia('(pointer:coarse)').matches;
+  const resolved=value==='auto'?(mobile?'medium':'high'):value;
+  const ratio=resolved==='high'?Math.min(devicePixelRatio,2):resolved==='medium'?Math.min(devicePixelRatio,1.35):1;
+  renderer.setPixelRatio(ratio);
+  renderer.shadowMap.enabled=resolved!=='low';
+  arenaSpots.forEach((spot,i)=>{spot.castShadow=resolved==='high'&&i<2;});
+  applyViewportSize();
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(saveData));}catch(e){}
+}
 let lastTouchEnd=0;
 document.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
 document.addEventListener('gesturechange', e=>e.preventDefault(), {passive:false});
@@ -1369,8 +1414,33 @@ const ROBOT_MARKET=[
     stats:{armor:6,speed:7,fire:6,melee:6,special:7}}
 ];
 let selectedMarket=ROBOT_MARKET[0];
- 
-const GUN_CD_BASE={rifle:0.28, cannon:0.55, gatling:0.11};
+
+const SAVE_KEY='rrgames-robo-rumble-v2';
+const defaultSave={builds:{},selectedRobot:'heavy',difficulty:'challenger',roundTime:90,sound:true,quality:'auto',wins:0};
+let saveData={...defaultSave,builds:{}};
+try{
+  const stored=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
+  if(stored&&typeof stored==='object') saveData={...defaultSave,...stored,builds:stored.builds||{}};
+}catch(e){}
+applyQuality(saveData.quality);
+selectedMarket=ROBOT_MARKET.find(bot=>bot.id===saveData.selectedRobot)||ROBOT_MARKET[0];
+let currentRobotId=selectedMarket.id;
+let difficulty=saveData.difficulty;
+let roundDuration=Number(saveData.roundTime)||90;
+function persist(){
+  saveData.selectedRobot=currentRobotId;
+  saveData.difficulty=difficulty;
+  saveData.roundTime=roundDuration;
+  saveData.builds[currentRobotId]={...playerCfg};
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(saveData)); }catch(e){}
+  const status=document.getElementById('saveStatus');
+  if(status) status.textContent='BUILD SAVED AUTOMATICALLY';
+}
+function buildFor(bot){
+  return {...bot.cfg,...(saveData.builds[bot.id]||{}),baseId:bot.id};
+}
+
+const GUN_CD_BASE={rifle:0.28, cannon:0.55, gatling:0.11, blaster:0.46, rocket:1.05};
 const GUN_AMMO_MAX={rifle:28, cannon:10, gatling:90, blaster:18, rocket:6};
 const GUN_AMMO_COST={rifle:1, cannon:1, gatling:1, blaster:1, rocket:1};
 const GUN_DMG={rifle:7, cannon:13, gatling:3.2, blaster:10, rocket:0};
@@ -1379,18 +1449,23 @@ const GUN_RESERVE_MULT={rifle:2.2, cannon:2.4, gatling:1.6, blaster:2.1, rocket:
 const AMMO_PICKUP_FILL=0.55;
 const SWORD_CD=1.0, DASH_CD=1.6, BALL_CD=6, KICK_CD=5, MET_CD=9, TORNADO_CD=7, SHIELD_CD=8, GRAPPLE_CD=5.5;
 const PLAYER_DAMAGE_TAKEN=0.78, ENEMY_DAMAGE_TAKEN=1.1;
-let roundNo=1, playerWins=0, enemyWins=0, matchOver=false;
+let roundNo=1, playerWins=0, enemyWins=0, matchOver=false, roundClock=90, roundEnding=false;
  
 function fighterState(bot, isPlayer){
   const ammoMax=GUN_AMMO_MAX[bot.cfg.gun]||24;
   const ammoReserveMax=Math.ceil(ammoMax*(GUN_RESERVE_MULT[bot.cfg.gun]||2));
-  return {bot, hp:100, isPlayer,
+  const market=ROBOT_MARKET.find(entry=>entry.id===bot.cfg.baseId);
+  const stats=market?.stats||{armor:6,speed:7,fire:7,melee:7,special:7};
+  const hpMax=88+stats.armor*3.2;
+  return {bot, hp:hpMax, hpMax, isPlayer, stats,
+    rangedMult:0.78+stats.fire*0.045, meleeMult:0.78+stats.melee*0.045,
+    specialMult:0.8+stats.special*0.04, statSpeed:0.82+stats.speed*0.028,
     pos:bot.root.position, yaw:0, vel:new THREE.Vector3(), y:0, vy:0,
     gunCd:0, swordCd:0, dashCd:0, ballCd:0, kickCd:0, metCd:0, tornadoCd:0, shieldCd:0, grappleCd:0,
     ammo:ammoMax, ammoMax, ammoReserve:ammoReserveMax, ammoReserveMax, reloadT:0, reloadDelay:0, reloadWarnT:0,
     dashT:0, swingT:0, hitT:0, walkPh:0, recoil:0,
     swingDur:0.38, punchDmg:0, punchReach:3.6, punchArc:1.1, punchAnnounce:'CLANK!',
-    shieldT:0, tornadoHitT:0,
+    shieldT:0, tornadoHitT:0, combo:0, comboT:0, ultimate:0,
     special:null, spT:0, spDir:new THREE.Vector3(), spTarget:new THREE.Vector3(), spHit:false,
     ai:{state:'chase', t:0, strafeDir:1}, dead:false};
 }
@@ -1411,6 +1486,7 @@ function rebuildPreview(){
   previewBot.root.position.set(0,0.5,0);
   scene.add(previewBot.root);
   pedRing.material.color.set(playerCfg.glow);
+  if(mode==='garage') persist();
 }
 function fillSwatches(rowId, colors, key, defIdx){
   const row=document.getElementById(rowId);
@@ -1503,23 +1579,46 @@ function applyCfg(next){
   renderPowers(UI.garagePowers, playerCfg);
   rebuildPreview();
 }
+function selectRobot(bot, openGarage=false){
+  selectedMarket=bot;
+  currentRobotId=bot.id;
+  applyCfg(buildFor(bot));
+  const workshopName=document.getElementById('workshopRobotName');
+  if(workshopName) workshopName.textContent=bot.name;
+  saveData.selectedRobot=bot.id;
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(saveData)); }catch(e){}
+  if(openGarage){
+    UI.shop.classList.add('hidden');
+    UI.garage.classList.remove('hidden');
+    mode='garage';
+  }
+  renderMarket();
+}
 function renderMarket(){
   UI.botMarket.innerHTML='';
   ROBOT_MARKET.forEach(bot=>{
     const card=document.createElement('div');
     card.className='botCard'+(bot===selectedMarket?' sel':'');
-    card.innerHTML=`<h3 class="titleFont">${bot.name}</h3><p>${bot.price} - ${bot.tag}</p>
+    const saved=!!saveData.builds[bot.id];
+    card.innerHTML=`<div class="botCardTop"><h3 class="titleFont">${bot.name}</h3><span class="botClass">${bot.cfg.frame.toUpperCase()}</span></div>
+      <p>${bot.price} - ${bot.tag}</p>
       <div class="statGrid">
         <div class="stat"><span>ARMOR</span><b>${bot.stats.armor}</b></div>
         <div class="stat"><span>SPEED</span><b>${bot.stats.speed}</b></div>
         <div class="stat"><span>FIRE</span><b>${bot.stats.fire}</b></div>
         <div class="stat"><span>SPECIAL</span><b>${bot.stats.special}</b></div>
+      </div>
+      <div class="botCardActions">
+        <button class="cardInspect" title="Preview ${bot.name}" aria-label="Preview ${bot.name}">◉</button>
+        <button class="cardConfigure">${saved?'EDIT BUILD':'CONFIGURE'}</button>
+        <button class="cardFight">FIGHT</button>
       </div>`;
     card.onclick=()=>{
-      selectedMarket=bot;
-      renderMarket();
-      applyCfg(bot.cfg);
+      selectRobot(bot, false);
     };
+    card.querySelector('.cardInspect').onclick=e=>{e.stopPropagation();selectRobot(bot,false);};
+    card.querySelector('.cardConfigure').onclick=e=>{e.stopPropagation();selectRobot(bot,true);};
+    card.querySelector('.cardFight').onclick=e=>{e.stopPropagation();selectRobot(bot,false);startBattle();};
     UI.botMarket.appendChild(card);
   });
 }
@@ -1547,20 +1646,26 @@ document.getElementById('botName').addEventListener('input', e=>{
   playerCfg.name=(e.target.value||'OMEGACLANK').toUpperCase();
   rebuildPreview();
 });
-document.getElementById('buyBtn').onclick=()=>{
-  applyCfg(selectedMarket.cfg);
-  UI.shop.classList.add('hidden');
-  UI.garage.classList.remove('hidden');
-  mode='garage';
-};
-document.getElementById('configureBtn').onclick=document.getElementById('buyBtn').onclick;
 document.getElementById('shopBackBtn').onclick=()=>{
   UI.garage.classList.add('hidden');
   UI.shop.classList.remove('hidden');
   mode='shop';
 };
 renderMarket();
-applyCfg(selectedMarket.cfg);
+applyCfg(buildFor(selectedMarket));
+document.getElementById('workshopRobotName').textContent=selectedMarket.name;
+syncOpt('difficultyRow',difficulty);
+syncOpt('roundTimeRow',String(roundDuration));
+document.querySelectorAll('#difficultyRow .opt').forEach(btn=>btn.onclick=()=>{
+  difficulty=btn.dataset.v;
+  syncOpt('difficultyRow',difficulty);
+  persist();
+});
+document.querySelectorAll('#roundTimeRow .opt').forEach(btn=>btn.onclick=()=>{
+  roundDuration=Number(btn.dataset.v);
+  syncOpt('roundTimeRow',String(roundDuration));
+  persist();
+});
  
 canvas.addEventListener('mousedown', e=>{ if(mode==='garage'||mode==='shop'){dragging=true; lastX=e.clientX;} });
 window.addEventListener('mousemove', e=>{
@@ -1577,11 +1682,12 @@ window.addEventListener('touchend', ()=>dragging=false);
  
 /* ---------------- BATTLE START ---------------- */
 function randomEnemyCfg(){
-  return {armor:pick(ARMOR_COLORS), accent:pick(ACCENT_COLORS), glow:pick(GLOW_COLORS),
+  const base=pick(ROBOT_MARKET);
+  return {...base.cfg, armor:pick(ARMOR_COLORS), accent:pick(ACCENT_COLORS), glow:pick(GLOW_COLORS),
     head:pick(HEADS), shoulder:pick(SHOULDERS), back:pick(BACKS), legs:pick(LEGS),
     gun:pick(GUNS), blade:pick(BLADES), frame:pick(FRAMES),
     nameDecal:pick(['shoulder','chest','forearm','shin']),
-    name:pick(ENEMY_NAMES)};
+    name:pick(ENEMY_NAMES), baseId:base.id};
 }
 function clearFx(){
   bullets.forEach(b=>scene.remove(b.mesh)); bullets.length=0;
@@ -1605,6 +1711,8 @@ function setupRound(){
   enemy.root.position.set(10,0,-8); scene.add(enemy.root);
  
   P=fighterState(player,true); E=fighterState(enemy,false);
+  roundClock=roundDuration;
+  roundEnding=false;
   P.yaw=Math.atan2(E.pos.x-P.pos.x, E.pos.z-P.pos.z); E.yaw=P.yaw+Math.PI;
  
   UI.pName.textContent=playerCfg.name;
@@ -1618,6 +1726,7 @@ function startBattle(){
   scene.remove(pedestal, pedRing);
   playerCfg.name=(document.getElementById('botName').value||'OMEGACLANK').toUpperCase();
   roundNo=1; playerWins=0; enemyWins=0; matchOver=false;
+  persist();
   setupRound();
  
   UI.shop.classList.add('hidden'); UI.garage.classList.add('hidden'); UI.endScreen.classList.add('hidden'); UI.hud.classList.remove('hidden');
@@ -1633,6 +1742,46 @@ document.getElementById('garageBtn').onclick=()=>{
   rebuildPreview();
   mode='garage';
 };
+const pauseScreen=document.getElementById('pauseScreen');
+const soundToggle=document.getElementById('soundToggle');
+const qualitySelect=document.getElementById('qualitySelect');
+soundToggle.checked=saveData.sound;
+qualitySelect.value=saveData.quality;
+function pauseGame(){
+  if(mode!=='battle') return;
+  mode='paused';
+  mouse.down=false; touchMove.fire=false; resetTouchMove();
+  pauseScreen.classList.remove('hidden');
+  gameSound('ui');
+}
+function resumeGame(){
+  if(mode!=='paused') return;
+  pauseScreen.classList.add('hidden');
+  mode='battle';
+  clock.getDelta();
+  gameSound('ui');
+}
+function returnToMarket(){
+  pauseScreen.classList.add('hidden');
+  UI.endScreen.classList.add('hidden');
+  UI.hud.classList.add('hidden');
+  UI.garage.classList.add('hidden');
+  UI.shop.classList.remove('hidden');
+  disposeBot(player); disposeBot(enemy); player=enemy=P=E=null; clearFx();
+  scene.add(pedestal,pedRing);
+  applyCfg(buildFor(selectedMarket));
+  mode='shop';
+}
+document.getElementById('pauseBtn').onclick=pauseGame;
+document.getElementById('resumeBtn').onclick=resumeGame;
+document.getElementById('restartBtn').onclick=()=>{pauseScreen.classList.add('hidden');startBattle();};
+document.getElementById('quitBtn').onclick=returnToMarket;
+soundToggle.onchange=()=>{
+  saveData.sound=soundToggle.checked;
+  if(saveData.sound) gameSound('ui');
+  persist();
+};
+qualitySelect.onchange=()=>applyQuality(qualitySelect.value);
 let lastAnnounce=0;
 function announce(txt, force=false){
   const now=performance.now();
@@ -1646,6 +1795,10 @@ function announce(txt, force=false){
 /* ---------------- INPUT ---------------- */
 window.addEventListener('keydown', e=>{
   keys[e.code]=true;
+  if(e.code==='Escape'){
+    if(mode==='battle') pauseGame();
+    else if(mode==='paused') resumeGame();
+  }
   if(mode==='battle' && !P.dead){
     if(e.code==='KeyF') tryMelee(P);
     if(e.code==='ShiftLeft'||e.code==='ShiftRight') tryDash(P);
@@ -1808,7 +1961,8 @@ function aimDirFor(F){
   if(F.isPlayer) return tmpV2.copy(aimPoint).setY(1.9+F.y).sub(tmpV).normalize();
   const other=F.isPlayer?E:P;
   const d=tmpV2.copy(other.pos).setY(1.9+other.y).sub(tmpV).normalize();
-  d.x+=(Math.random()-0.5)*0.12; d.z+=(Math.random()-0.5)*0.12;
+  const spread={rookie:0.24,challenger:0.14,champion:0.07}[difficulty]||0.14;
+  d.x+=(Math.random()-0.5)*spread; d.z+=(Math.random()-0.5)*spread;
   return d.normalize();
 }
 function tryFire(F){
@@ -1838,6 +1992,7 @@ function tryFire(F){
     return;
   }
   F.ammo=Math.max(0,F.ammo-cost);
+  gameSound(type==='rocket'?'rocket':'shot',type==='cannon'?1.3:0.8);
   F.reloadDelay=F.isPlayer?0.72:1.1;
   F.gunCd = F.isPlayer? GUN_CD_BASE[type]*1.25 : GUN_CD_BASE[type]*3+Math.random()*0.55;
   F.bot.muzzle.getWorldPosition(tmpV);
@@ -1878,6 +2033,7 @@ function tryMelee(F){
   F.punchReach=F.bot.cfg.blade==='axe'?3.8:F.bot.cfg.blade==='spinner'?3.9:3.55;
   F.punchArc=1.0;
   F.punchAnnounce=F.isPlayer?pick2(F.bot.cfg.blade==='spinner'?['CHEST SLASH!','SPINNER HIT!']:['HEAVY HOOK!','UPPERCUT!','KNOCKBACK!']):'';
+  gameSound('blade',F.bot.cfg.blade==='axe'?1.3:0.8);
 }
 function tryDash(F){
   if(F.dashCd>0||F.dead||F.special) return;
@@ -1958,27 +2114,61 @@ function exitSpecial(F){
   F.bot.root.visible=!F.dead;
   F.bot.root.rotation.x=0; F.bot.root.rotation.z=0;
 }
-function damage(F, amt, hitPos){
+function damage(F, amt, hitPos, attacker=null){
   if(F.dead) return;
+  attacker=attacker||(F===P?E:P);
+  if(attacker?.special) amt*=attacker.specialMult||1;
   if(F.shieldT>0){
     amt*=0.35;
     burstSparks(hitPos, F.bot.glowColor.getHex(), 12, 7, 5);
     announce(F.isPlayer?'BLOCKED!':'SHIELD!');
+    gameSound('block');
   }
-  amt*=F.isPlayer?PLAYER_DAMAGE_TAKEN:ENEMY_DAMAGE_TAKEN;
+  const difficultyDamage={rookie:0.68,challenger:0.9,champion:1.08}[difficulty]||0.9;
+  amt*=F.isPlayer?PLAYER_DAMAGE_TAKEN*difficultyDamage:ENEMY_DAMAGE_TAKEN;
   amt*=F.bot.armorMult;
   F.hp-=amt; F.hitT=0.25;
+  if(attacker){
+    attacker.combo=attacker.comboT>0?attacker.combo+1:1;
+    attacker.comboT=1.65;
+    attacker.ultimate=Math.min(100,attacker.ultimate+Math.max(2,amt*0.55));
+  }
   burstSparks(hitPos, 0xffdd88, 10, 6, 4);
+  gameSound('hit',Math.min(1.5,amt/10));
   scrapBurst(hitPos, 0x888888, new THREE.Color(F.bot.cfg.armor).getHex(), 3);
   if(F.isPlayer){ UI.dmgFlash.style.opacity=1; setTimeout(()=>UI.dmgFlash.style.opacity=0, 120); shake+=0.15; }
   updateHpBars();
   if(F.hp<=0){ F.hp=0; destroyBot(F); }
 }
 function updateHpBars(){
-  UI.pHp.style.width=Math.max(0,P.hp)+'%';
-  UI.eHp.style.width=Math.max(0,E.hp)+'%';
-  UI.pHp.classList.toggle('low', P.hp<35);
-  UI.eHp.classList.toggle('low', E.hp<35);
+  UI.pHp.style.width=Math.max(0,P.hp/P.hpMax*100)+'%';
+  UI.eHp.style.width=Math.max(0,E.hp/E.hpMax*100)+'%';
+  UI.pHp.classList.toggle('low', P.hp/P.hpMax<0.35);
+  UI.eHp.classList.toggle('low', E.hp/E.hpMax<0.35);
+}
+function finishRound(winner, reason='KNOCKOUT'){
+  if(roundEnding||matchOver) return;
+  roundEnding=true;
+  mode='roundEnd';
+  if(winner===P) playerWins++; else enemyWins++;
+  updateRoundTag();
+  announce(`${reason} - ${winner===P?'PLAYER':'CPU'} WINS`,true);
+  setTimeout(()=>{
+    if(playerWins>=2||enemyWins>=2){
+      matchOver=true;
+      mode='over';
+      if(playerWins>=2){ saveData.wins=(saveData.wins||0)+1; persist(); }
+      UI.endTitle.textContent=playerWins>=2?'VICTORY!':'DEFEATED!';
+      UI.endTitle.className='titleFont '+(playerWins>=2?'win':'lose');
+      UI.endSub.textContent=`Best-of-3 ${playerWins>=2?'won':'lost'} ${playerWins}-${enemyWins}. ${reason==='TIME'?'The judges scored the round by remaining armor.':'The final round ended by knockout.'}`;
+      UI.endScreen.classList.remove('hidden');
+    }else{
+      roundNo++;
+      setupRound();
+      mode='battle';
+      announce(`ROUND ${roundNo}!`,true);
+    }
+  },1400);
 }
 function destroyBot(F){
   exitSpecial(F);
@@ -1988,25 +2178,7 @@ function destroyBot(F){
   explosion(p, F.bot.glowColor.getHex(), true);
   scrapBurst(p, new THREE.Color(F.bot.cfg.armor).getHex(), 0x999999, 22);
   setTimeout(()=>explosion(F.pos.clone().setY(1.2), 0xffaa33, false), 180);
-  setTimeout(()=>{
-    if(F.isPlayer) enemyWins++; else playerWins++;
-    updateRoundTag();
-    if(playerWins>=2||enemyWins>=2){
-      matchOver=true;
-      mode='over';
-      UI.endTitle.textContent = playerWins>=2? 'VICTORY!' : 'DEFEATED!';
-      UI.endTitle.className='titleFont '+(playerWins>=2?'win':'lose');
-      UI.endSub.textContent = playerWins>=2?
-        `Best-of-3 won ${playerWins}-${enemyWins}. Enemy bot popped into spare parts. You are the arena champion!` :
-        `Best-of-3 lost ${playerWins}-${enemyWins}. Rebuild the bot, pick a new arena, and strike back.`;
-      UI.endScreen.classList.remove('hidden');
-    } else {
-      roundNo++;
-      announce(`ROUND ${roundNo}!`, true);
-      setupRound();
-      mode='battle';
-    }
-  }, 1400);
+  finishRound(F.isPlayer?E:P,'KNOCKOUT');
 }
 function meleeHitCheck(F, dmg, reach, arc){
   const other=F.isPlayer?E:P;
@@ -2015,7 +2187,7 @@ function meleeHitCheck(F, dmg, reach, arc){
   const toOther=Math.atan2(other.pos.x-F.pos.x, other.pos.z-F.pos.z);
   let dy=toOther-F.yaw; while(dy>Math.PI)dy-=Math.PI*2; while(dy<-Math.PI)dy+=Math.PI*2;
   if(dist<reach && Math.abs(dy)<arc){
-    damage(other, dmg, other.pos.clone().setY(2));
+    damage(other, dmg*(F.meleeMult||1), other.pos.clone().setY(2), F);
     explosion(other.pos.clone().setY(1.8), F.bot.glowColor.getHex(), false);
     other.vel.add(new THREE.Vector3(Math.sin(F.yaw),0,Math.cos(F.yaw)).multiplyScalar(dmg>12?12:7));
     return true;
@@ -2250,7 +2422,8 @@ function updateAI(dt){
   const ai=E.ai; ai.t-=dt;
   const dist=E.pos.distanceTo(P.pos);
   if(ai.t<=0){
-    ai.t=1.15+Math.random()*1.55;
+    const think={rookie:1.65,challenger:1.15,champion:0.72}[difficulty]||1.15;
+    ai.t=think+Math.random()*think;
     if(dist>16) ai.state='chase';
     else if(dist<4.8&&Math.random()<0.62) ai.state='slash';
     else ai.state=Math.random()<0.56?'strafe':'chase';
@@ -2277,8 +2450,10 @@ function updateAI(dt){
     if(dist>6.5)move.add(fwd.clone().multiplyScalar(0.65));
     if(dist<3.1)move.add(fwd.clone().multiplyScalar(-0.7)); }
   if(ai.state==='slash'){ move.add(fwd); if(dist<3.7){ (Math.random()<0.58?tryFire:tryMelee)(E); ai.state='strafe'; } }
-  applyMove(E, move, dt, 5.45*E.bot.speedMult);
-  if(dist>8&&Math.abs(dy)<0.45&&Math.random()<0.035) tryFire(E);
+  const aiSpeed={rookie:0.82,challenger:0.94,champion:1.06}[difficulty]||0.94;
+  applyMove(E, move, dt, 5.45*E.bot.speedMult*E.statSpeed*aiSpeed);
+  const fireChance={rookie:0.018,challenger:0.03,champion:0.044}[difficulty]||0.03;
+  if(dist>8&&Math.abs(dy)<0.45&&Math.random()<fireChance) tryFire(E);
 }
  
 function updateAmmoSystem(F, dt, wantsFire=false){
@@ -2490,14 +2665,23 @@ function loop(){
     pedRing.rotation.z+=dt*0.6;
   }
  
-  if(mode==='battle'||mode==='over'){
+  if(mode==='battle'||mode==='roundEnd'||mode==='over'){
     [P,E].forEach(F=>{
       F.gunCd=Math.max(0,F.gunCd-dt); F.swordCd=Math.max(0,F.swordCd-dt);
       F.dashCd=Math.max(0,F.dashCd-dt); F.dashT=Math.max(0,F.dashT-dt);
       F.ballCd=Math.max(0,F.ballCd-dt); F.kickCd=Math.max(0,F.kickCd-dt); F.metCd=Math.max(0,F.metCd-dt);
       F.tornadoCd=Math.max(0,F.tornadoCd-dt); F.shieldCd=Math.max(0,F.shieldCd-dt); F.grappleCd=Math.max(0,F.grappleCd-dt);
       F.shieldT=Math.max(0,F.shieldT-dt);
+      F.comboT=Math.max(0,F.comboT-dt);
+      if(F.comboT<=0) F.combo=0;
     });
+    if(mode==='battle'&&!roundEnding){
+      roundClock=Math.max(0,roundClock-dt);
+      if(roundClock<=0){
+        const pArmor=P.hp/P.hpMax, eArmor=E.hp/E.hpMax;
+        finishRound(pArmor>=eArmor?P:E,'TIME');
+      }
+    }
     updateAmmoSystem(P, dt, mouse.down||touchMove.fire||gamepadInput.fire);
     updateAmmoSystem(E, dt, false);
  
@@ -2510,7 +2694,7 @@ function loop(){
     if(!P.dead && mode==='battle' && !P.special){
       P.yaw=Math.atan2(aimPoint.x-P.pos.x, aimPoint.z-P.pos.z);
       const move=playerMoveWorld(P,new THREE.Vector3());
-      applyMove(P, move, dt, 7*P.bot.speedMult);
+      applyMove(P, move, dt, 7*P.bot.speedMult*P.statSpeed);
       if(mouse.down||touchMove.fire||gamepadInput.fire) tryFire(P);
     }
     if(mode==='battle'){ updateAI(dt); updateSpecial(P,dt); updateSpecial(E,dt); }
@@ -2527,7 +2711,7 @@ function loop(){
       if(!target.dead){
         const ty = target.special==='ballRoll'? 1.1 : 2+target.y;
         if(b.mesh.position.distanceTo(tmpV.copy(target.pos).setY(ty))<1.35){
-          damage(target, b.dmg, b.mesh.position.clone());
+          damage(target, b.dmg, b.mesh.position.clone(), b.owner);
           explosion(b.mesh.position, b.owner.bot.glowColor.getHex(), false);
           if(b.owner.isPlayer) announce(pick2(['ZAP!','BOOM!','DIRECT HIT!','POW!']));
           hit=true;
@@ -2555,7 +2739,7 @@ function loop(){
       if(Math.random()<0.7) burstSparks(m.mesh.position, 0xff9944, 1, 1, 0.5);
       let done=false;
       if(!target.dead && m.mesh.position.distanceTo(goal)<1.2){
-        damage(target, m.dmg||6, m.mesh.position.clone());
+        damage(target, m.dmg||6, m.mesh.position.clone(), m.owner);
         explosion(m.mesh.position, 0xff8833, false); done=true;
       }
       if(m.mesh.position.y<0.1){ explosion(m.mesh.position,0xff8833,false); done=true; }
@@ -2628,12 +2812,11 @@ function loop(){
     UI.cfShield.style.height=(P.shieldCd/SHIELD_CD*100)+'%'; UI.slotShield.classList.toggle('ready',P.shieldCd<=0);
     UI.cfGrapple.style.height=(P.grappleCd/GRAPPLE_CD*100)+'%'; UI.slotGrapple.classList.toggle('ready',P.grappleCd<=0);
     updateTouchButtons();
-    const combo=Math.max(0,Math.min(12,Math.floor((100-E.hp)/9)));
-    UI.comboText.textContent=combo+' HIT';
-    UI.timerText.textContent=Math.max(0,90-Math.floor((performance.now()/1000)%90));
+    UI.comboText.textContent=P.combo+' HIT';
+    UI.timerText.textContent=Math.ceil(roundClock);
     UI.energyText.textContent=`${P.ammo}/${P.ammoMax}+${P.ammoReserve}`;
-    UI.ultimateText.textContent=Math.min(100,Math.round((playerWins*35+(100-E.hp)*0.65)))+'%';
-    UI.armorText.textContent=P.hp<35?'BREAK':P.shieldT>0?'SHIELD':'OK';
+    UI.ultimateText.textContent=Math.round(P.ultimate)+'%';
+    UI.armorText.textContent=P.hp/P.hpMax<0.35?'BREAK':P.shieldT>0?'SHIELD':'OK';
     UI.heatText.textContent=P.ammo<=0&&P.ammoReserve<=0?'REFILL':P.ammo<P.ammoMax&&P.ammoReserve>0?'RELOAD':(mouse.down||touchMove.fire||gamepadInput.fire)?'HIGH':P.gunCd>0?'MED':'LOW';
     UI.miniP.style.left=(50+P.pos.x/ARENA*42)+'%'; UI.miniP.style.top=(50+P.pos.z/ARENA*42)+'%';
     UI.miniE.style.left=(50+E.pos.x/ARENA*42)+'%'; UI.miniE.style.top=(50+E.pos.z/ARENA*42)+'%';
