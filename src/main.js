@@ -711,23 +711,10 @@ function buildRobot(cfg){
   function addBoltRow(parent,y,z,w,count=5){
     for(let i=0;i<count;i++) bolt(parent,(-w/2)+(w*i/(count-1)),y,z,0.028,i%2?chromeMat:pistonMat);
   }
-  function isChildOf(obj, parent){
-    let p=obj.parent;
-    while(p){ if(p===parent) return true; p=p.parent; }
-    return false;
-  }
   function simplifyRobotReadability(){
-    root.traverse(o=>{
-      if(!o.isMesh || isChildOf(o, gun) || isChildOf(o, sword) || isChildOf(o, chestSpinner)) return;
-      if(o.geometry){
-        o.geometry.computeBoundingBox();
-        const s=o.geometry.boundingBox.getSize(tmpV);
-        const max=Math.max(s.x,s.y,s.z), min=Math.min(s.x,s.y,s.z);
-        if(max<0.42 || (min<0.07 && max<0.95)) o.visible=false;
-      }
-    });
     // Large, readable hero shells sit over the detailed machinery for a premium action-figure silhouette.
-    const chestShell=M(new THREE.BoxGeometry(1.52*fw,1.02,0.16), armorMat, 0,0.12,0.91, torso);
+    const chestShell=M(new THREE.SphereGeometry(0.9,24,16), armorMat, 0,0.12,0.74, torso);
+    chestShell.scale.set(1.05*fw,0.68,0.52);
     chestShell.name='readableChestShell';
     armorShard(torso,-0.32*fw,0.28,1.02,0.78*fw,0.18,0.12,0,0,0.34,heroTrimMat);
     armorShard(torso,0.32*fw,0.28,1.02,0.78*fw,0.18,0.12,0,0,-0.34,heroTrimMat);
@@ -735,12 +722,13 @@ function buildRobot(cfg){
     const badge=M(new THREE.CylinderGeometry(0.28,0.28,0.08,24), glowMat, 0,0.03,1.12, torso);
     badge.rotation.x=Math.PI/2;
     neonSlash(torso,0,0.63,1.12,1.12*fw,0.06,0.05,0);
-    M(new THREE.BoxGeometry(0.92,0.48,0.2), heroTrimMat, 0,0.5,0.48, head);
+    const helmet=M(new THREE.SphereGeometry(0.52,20,14), heroTrimMat, 0,0.49,0.08, head);
+    helmet.scale.set(1,0.72,0.82);
     M(new THREE.BoxGeometry(0.72,0.2,0.08), blackGlassMat, 0,0.43,0.6, head);
     M(new THREE.BoxGeometry(0.56,0.075,0.045), glowMat, 0,0.45,0.66, head);
     [-1,1].forEach(s=>{
-      const glove=M(new THREE.BoxGeometry(0.66,0.48,0.58), heroTrimMat, 0,-1.03,0.08, s>0?armR.fore:armL.fore);
-      glove.scale.set(1.08,1.02,1.08);
+      const glove=M(new THREE.DodecahedronGeometry(0.42,0), heroTrimMat, 0,-1.03,0.08, s>0?armR.fore:armL.fore);
+      glove.scale.set(1.08,0.9,1.05);
       M(new THREE.BoxGeometry(0.5,0.08,0.18), glowMat, 0,-0.78,0.42, s>0?armR.fore:armL.fore);
       if(s>0) glove.name='rightHeroGlove'; else glove.name='leftHeroGlove';
     });
@@ -2494,9 +2482,11 @@ function loop(){
       if(previewBot.hoverRing) previewBot.hoverRing.rotation.z+=dt*2;
       previewBot.wingParts.forEach((w,i)=>w.rotation.z=Math.sin(t*1.5+i)*0.08);
     }
-    const r=10.2;
-    camera.position.set(Math.sin(previewSpin)*r, 5.1+Math.sin(t*0.5)*0.2, Math.cos(previewSpin)*r);
-    camera.lookAt(0,3.65,0);
+    const r=mode==='shop'?12.4:10.8;
+    const shopOffset=mode==='shop'?-1.35:0;
+    previewBot.root.position.x=shopOffset;
+    camera.position.set(shopOffset+Math.sin(previewSpin)*r, 5.45+Math.sin(t*0.5)*0.2, Math.cos(previewSpin)*r);
+    camera.lookAt(shopOffset,3.45,0);
     pedRing.rotation.z+=dt*0.6;
   }
  

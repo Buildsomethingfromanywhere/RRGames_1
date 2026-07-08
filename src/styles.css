@@ -60,7 +60,7 @@
     background:linear-gradient(180deg,#fff,#d6e7ef 52%,#6a8492);-webkit-background-clip:text;background-clip:text;color:transparent;
     text-shadow:0 0 28px rgba(255,210,63,.18)}
   .shopTop p{color:#92a8b8;letter-spacing:1px;font-size:12px;margin-top:4px}
-  #devStudio{position:fixed;left:24px;top:108px;width:min(430px,42vw);pointer-events:none;color:#dbefff}
+  #devStudio{display:none}
   .studioBot{position:relative;width:120px;height:160px;margin-bottom:12px;filter:drop-shadow(0 0 18px rgba(55,213,255,.35))}
   .botHead{position:absolute;left:38px;top:0;width:48px;height:42px;background:linear-gradient(180deg,#f7fbff,#91a8ba);border:2px solid #d8eef8;border-radius:10px 10px 6px 6px}
   .botHead:before{content:"";position:absolute;left:10px;right:10px;top:17px;height:5px;background:#37d5ff;box-shadow:0 0 12px #37d5ff}
@@ -182,7 +182,15 @@
     #ctrlHint{display:none}
     #cool{display:none}
   }
-  @media(max-width:700px){ #ctrlHint,#combatTelemetry,#miniMap,#replayTag{display:none} .gPanel{max-height:54vh} .coolSlot{width:46px;height:46px;font-size:17px} }
+  @media(max-width:700px){
+    #ctrlHint,#combatTelemetry,#miniMap,#replayTag{display:none}
+    .shopTop{padding:18px 20px}
+    .shopTop h1{font-size:18px;letter-spacing:2px;white-space:nowrap}
+    .shopTop p{max-width:82vw;font-size:10px;line-height:1.35}
+    .shopPanel{align-self:stretch;width:auto;margin:0 12px 12px;max-height:58vh;padding:12px}
+    .gPanel{max-height:54vh}
+    .coolSlot{width:46px;height:46px;font-size:17px}
+  }
   @media(max-width:520px){
     #touchActions{grid-template-columns:repeat(3,42px);gap:6px;left:calc(9px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
     .touchBtn{width:42px;height:42px;font-size:17px}
